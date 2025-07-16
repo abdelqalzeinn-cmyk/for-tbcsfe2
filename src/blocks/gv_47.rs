@@ -1,0 +1,107 @@
+use bcsfe_derive::{Readable, Writable};
+
+use crate::{
+    save::GVCC,
+    stream::{
+        Assertable, NewResultCtx, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable,
+        WritableNoOptions,
+    },
+};
+
+#[derive(Debug, Clone, Default)]
+pub struct EventCapsules {
+    pub event_capsules: Vec<i32>,
+    pub event_capsules_counter: Vec<i32>,
+}
+
+impl Readable for EventCapsules {
+    type Args<'a> = GVCC;
+    fn read<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        args: Self::Args<'_>,
+    ) -> crate::stream::StreamResult<Self> {
+        let length = match args.gv.0 {
+            0..34 => VecArgs::new_empty_fixed(100),
+            _ => VecArgs::new_empty_i32(),
+        };
+
+        Ok(Self {
+            event_capsules: Vec::read(reader, length).add_context(|| "event capsules")?,
+            event_capsules_counter: Vec::read(reader, length)
+                .add_context(|| "read event capsules counter")?,
+        })
+    }
+}
+
+impl Writable for EventCapsules {
+    type Args<'a> = GVCC;
+    fn write<W: std::io::Write + std::io::Seek>(
+        &self,
+        writer: &mut W,
+        args: Self::Args<'_>,
+    ) -> StreamResult<()> {
+        let length = match args.gv.0 {
+            0..34 => VecArgs::new_empty_fixed(100),
+            _ => VecArgs::new_empty_i32(),
+        };
+
+        self.event_capsules.write(writer, length)?;
+        self.event_capsules_counter.write(writer, length)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum GatyaSeed {
+    Old(u64),
+    New(u32),
+}
+
+impl Default for GatyaSeed {
+    fn default() -> Self {
+        Self::New(0)
+    }
+}
+
+impl Readable for GatyaSeed {
+    type Args<'a> = GVCC;
+    fn read<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        args: Self::Args<'_>,
+    ) -> crate::stream::StreamResult<Self> {
+        Ok(match args.gv.0 {
+            0..33 => Self::Old(u64::read_no_opts(reader)?),
+            _ => Self::New(u32::read_no_opts(reader)?),
+        })
+    }
+}
+
+impl Writable for GatyaSeed {
+    type Args<'a> = GVCC;
+    fn write<W: std::io::Write + std::io::Seek>(
+        &self,
+        writer: &mut W,
+        args: Self::Args<'_>,
+    ) -> StreamResult<()> {
+        match args.gv.0 {
+            0..33 => match self {
+                GatyaSeed::Old(o) => o.write_no_opts(writer)?,
+                GatyaSeed::New(n) => (*n as u64).write_no_opts(writer)?,
+            },
+            _ => match self {
+                GatyaSeed::Old(o) => (*o as u32).write_no_opts(writer)?,
+                GatyaSeed::New(n) => n.write_no_opts(writer)?,
+            },
+        };
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Readable, Writable, Default)]
+pub struct GV47Block {
+    #[rw(gvcc)]
+    pub event_seed: GatyaSeed,
+    #[rw(gvcc)]
+    pub event_capsules: EventCapsules,
+    pub _47: Assertable<47>,
+}

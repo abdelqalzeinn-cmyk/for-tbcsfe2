@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-thiserror = "2.0"
 bcsfe_derive = { path = "./bcsfe_derive" }
-md5 = "0.8.0"
+md5 = "0.8"
+
+[workspace]
+members = ["bcsfe_derive"]

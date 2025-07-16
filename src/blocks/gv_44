@@ -1,0 +1,15 @@
+
+#[derive(Debug, Clone, Readable, Writable, Default)]
+pub struct GV44Block {
+    #[rw(gvcc)]
+    pub item_reward_chapters: ItemRewardChapters<bool>,
+    #[rw(gvcc)]
+    pub timed_score_chapters: ItemRewardChapters<i32>,
+    pub inquiry_code: LengthString<i32>,
+    pub play_time: i32,
+    pub has_account: i8,
+    pub backup_state: i32,
+    #[rw(jp = false)]
+    pub ub2: Option<bool>,
+    pub _44: Assertable<44>,
+}

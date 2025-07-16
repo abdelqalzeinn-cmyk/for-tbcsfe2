@@ -7,6 +7,7 @@ use crate::{
     stream::{Readable, ReadableNoOptions, Writable, WritableNoOptions},
 };
 
+pub mod blocks;
 pub mod country_code;
 pub mod game_version;
 pub mod hash;

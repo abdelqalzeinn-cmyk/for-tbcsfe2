@@ -78,21 +78,21 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
         let line = if gvcc {
             if opts.is_empty() {
                 quote! {
-                    <#field_type as crate::stream::Readable>::read(reader, args).add_context(|| format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
+                    crate::stream::NewResultCtx::add_context(<#field_type as crate::stream::Readable>::read(reader, args), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
                 }
             } else {
                 quote! {
-                    <#inner_type as crate::stream::Readable>::read(reader, args).add_context(|| format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
+                    crate::stream::NewResultCtx::add_context(<#inner_type as crate::stream::Readable>::read(reader, args), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
                 }
             }
         } else {
             if opts.is_empty() {
                 quote! {
-                    <#field_type as crate::stream::Readable>::read(reader, ()).add_context(|| format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
+                    crate::stream::NewResultCtx::add_context(<#field_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
                 }
             } else {
                 quote! {
-                    <#inner_type as crate::stream::Readable>::read(reader, ()).add_context(|| format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
+                    crate::stream::NewResultCtx::add_context(<#inner_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
                 }
             }
         };
@@ -194,16 +194,16 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
         let line = if gvcc {
             if opts.is_empty() {
                 quote! {
-                    self.#field_name.write(writer, args).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                    crate::stream::NewResultCtx::add_context(self.#field_name.write(writer, args), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                 }
             }
             else {
                 quote! {
                     if let Some(ref val) = self.#field_name {
-                        val.write(writer, args).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                        crate::stream::NewResultCtx::add_context(val.write(writer, args), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                     }
                     else {
-                        <#inner_type>::default().write(writer, args).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                        crate::stream::NewResultCtx::add_context(<#inner_type>::default().write(writer, args), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                     }
                 }
             }
@@ -211,16 +211,16 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
         else {
             if opts.is_empty() {
                 quote! {
-                    self.#field_name.write(writer, ()).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                    crate::stream::NewResultCtx::add_context(self.#field_name.write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                 }
             }
             else {
                 quote! {
                     if let Some(ref val) = self.#field_name {
-                        val.write(writer, ()).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                        crate::stream::NewResultCtx::add_context(val.write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                     }
                     else {
-                        <#inner_type>::default().write(writer, ()).add_context(|| format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                        crate::stream::NewResultCtx::add_context(<#inner_type>::default().write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                     }
                 }
             }
