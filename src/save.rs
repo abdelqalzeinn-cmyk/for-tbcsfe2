@@ -1,6 +1,7 @@
 use crate::{
     blocks::{gv_47::GatyaSeed, gv_58::TOTAL_BATTLE_ITEMS, *},
     country_code::CountryCode,
+    game::main_story::{StoryChapters, TOTAL_STORY_CHAPTERS},
     game_version::GameVersion,
     stream::{
         HashMapLength, LengthString, LengthVec, NewResultCtx, Readable, ReadableNoOptions,
@@ -2143,25 +2144,4 @@ pub struct StampData {
     pub collected_stamps: [i32; 30],
     pub unknown: i32,
     pub daily_reward: i32,
-}
-
-pub const TOTAL_STORY_CHAPTERS: usize = 10;
-
-#[derive(Debug, Copy, Clone, Readable, Writable)]
-pub struct StoryChapters {
-    pub selected_stages: [i32; TOTAL_STORY_CHAPTERS],
-    pub chapter_progress: [i32; TOTAL_STORY_CHAPTERS],
-    pub clear_times: [[i32; 51]; TOTAL_STORY_CHAPTERS],
-    pub treasures: [[i32; 49]; TOTAL_STORY_CHAPTERS],
-}
-
-impl Default for StoryChapters {
-    fn default() -> Self {
-        Self {
-            selected_stages: [0; TOTAL_STORY_CHAPTERS],
-            chapter_progress: [0; TOTAL_STORY_CHAPTERS],
-            clear_times: [[0; 51]; TOTAL_STORY_CHAPTERS],
-            treasures: [[0; 49]; TOTAL_STORY_CHAPTERS],
-        }
-    }
 }

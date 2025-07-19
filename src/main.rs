@@ -1,14 +1,14 @@
 use std::io::Cursor;
 
 use crate::{
-    game_version::GameVersion,
     hash::{add_hash, detect_cc},
-    save::{GVCC, Save},
-    stream::{Readable, ReadableNoOptions, Writable, WritableNoOptions},
+    save::SaveFile,
+    stream::{Readable, WritableNoOptions},
 };
 
 pub mod blocks;
 pub mod country_code;
+pub mod game;
 pub mod game_version;
 pub mod hash;
 pub mod save;
@@ -19,43 +19,75 @@ fn main() {
     // let data = include_bytes!("/home/henry/Documents/bcsfe/saves/transfer_backup");
 
     let cc = detect_cc(data).unwrap();
-
     dbg!(cc);
     let mut reader = Cursor::new(data);
 
-    let gv = GameVersion::read_no_opts(&mut reader).expect("gv");
+    let mut save_file = SaveFile::read(&mut reader, cc.into()).unwrap();
 
-    let gvcc = GVCC { cc: cc.into(), gv };
+    println!("{}", save_file.save.catfood);
 
-    let save = Save::read(&mut reader, gvcc).expect("aaa");
+    save_file
+        .save
+        .story_chapters
+        .clear_chapter(game::main_story::ClearChapterOptions {
+            chapter: game::main_story::StoryChapterType::Eoc(
+                game::main_story::InnerChapterType::First,
+            ),
+            clear_amount: 1,
+            add_to_clears: false,
+        });
+    save_file
+        .save
+        .story_chapters
+        .clear_chapter(game::main_story::ClearChapterOptions {
+            chapter: game::main_story::StoryChapterType::Eoc(
+                game::main_story::InnerChapterType::Second,
+            ),
+            clear_amount: 2,
+            add_to_clears: false,
+        });
+    save_file
+        .save
+        .story_chapters
+        .clear_chapter(game::main_story::ClearChapterOptions {
+            chapter: game::main_story::StoryChapterType::Eoc(
+                game::main_story::InnerChapterType::Third,
+            ),
+            clear_amount: 3,
+            add_to_clears: false,
+        });
+    save_file
+        .save
+        .story_chapters
+        .clear_chapter(game::main_story::ClearChapterOptions {
+            chapter: game::main_story::StoryChapterType::Itf(
+                game::main_story::InnerChapterType::First,
+            ),
+            clear_amount: 4,
+            add_to_clears: false,
+        });
+    save_file
+        .save
+        .story_chapters
+        .clear_chapter(game::main_story::ClearChapterOptions {
+            chapter: game::main_story::StoryChapterType::Itf(
+                game::main_story::InnerChapterType::Second,
+            ),
+            clear_amount: 5,
+            add_to_clears: false,
+        });
 
-    // let dbg_str = format!("{save:#?}");
-
-    // println!("{}", dbg_str);
-
-    println!("{}", save.catfood);
+    // save_file.save.story_chapters.clear_all(
+    //     ClearAllChaptersOptions::default()
+    //         .with_clear_amount(10)
+    //         .with_add_to_clears(false),
+    // );
 
     let mut writer = Cursor::new(Vec::new());
 
-    gv.write_no_opts(&mut writer).unwrap();
-
-    save.write(&mut writer, gvcc).unwrap();
-
-    dbg!(&save.remaing_data);
+    save_file.write_no_opts(&mut writer).unwrap();
 
     let new_data = add_hash(&writer.into_inner(), cc).unwrap();
 
     std::fs::write("./SAVE_DATA", &new_data).unwrap();
-
-    let mut new_reader = Cursor::new(new_data);
-
-    let gv2 = GameVersion::read_no_opts(&mut new_reader).unwrap();
-
-    let save_2 = Save::read(&mut new_reader, gvcc).unwrap();
-
-    println!("{}", save_2.catfood);
-
-    // dbg!(save_2);
-
-    // let save_file = SaveFile::from_data(CountryCode::En, data).expect("aaa");
 }
