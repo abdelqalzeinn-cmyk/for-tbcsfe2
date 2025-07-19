@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::country_code::PatchingCode;
 
 fn split_at_last_32_bytes(data: &[u8]) -> Option<(&[u8], &[u8])> {
@@ -46,6 +48,34 @@ pub fn write_hash(data: &[u8], cc: PatchingCode) -> Option<Vec<u8>> {
     let to_add = encode_hex(&hash).into_bytes();
 
     Some([save_data, to_add.as_slice()].concat())
+}
+
+pub fn add_hash_w<W: std::io::Write + std::io::Seek + std::io::Read>(
+    writer: &mut W,
+    cc: PatchingCode,
+) -> Result<(), std::io::Error> {
+    writer.seek(std::io::SeekFrom::End(0))?;
+    let end_pos = writer.stream_position()?;
+
+    writer.seek(std::io::SeekFrom::Start(0))?;
+
+    let salt = get_salt(cc);
+
+    let mut data = vec![0; end_pos as usize];
+
+    writer.read_exact(&mut data)?;
+
+    writer.seek(std::io::SeekFrom::End(0))?;
+
+    let to_hash = [salt, data].concat();
+
+    let hash = md5_hash(&to_hash);
+
+    let to_add = encode_hex(&hash).into_bytes();
+
+    writer.write_all(&to_add)?;
+
+    Ok(())
 }
 
 pub fn add_hash(data: &[u8], cc: PatchingCode) -> Option<Vec<u8>> {

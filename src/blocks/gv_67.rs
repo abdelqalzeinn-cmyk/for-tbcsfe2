@@ -2,7 +2,7 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::{ChaptersGeneric, GenericChapterArgs, StageClear},
-    stream::{Assertable, LengthVec, Readable, StreamResult, Writable},
+    stream::{Assertable, LengthString, LengthVec, Readable, StreamResult, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
@@ -17,7 +17,7 @@ pub struct GV67Block {
     pub _67: Assertable<67>,
 }
 
-#[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[derive(Debug, Clone, Readable, Writable, Default)]
 pub struct DojoRanking {
     pub score: i32,
     pub ranking: i32,
@@ -31,7 +31,7 @@ pub struct DojoRanking {
     pub should_show_start_message: bool,
     pub submit_error_flag: bool,
     #[rw(min_gv = 140500)]
-    pub other: Option<i32>,
+    pub other: Option<LengthString<i32>>,
 }
 
 #[derive(Debug, Clone, Default)]

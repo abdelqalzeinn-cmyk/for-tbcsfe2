@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use crate::stream::{NewResultCtx, Readable, Writable};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
 pub struct GameVersion(pub u32);
 

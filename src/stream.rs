@@ -14,6 +14,8 @@ pub struct StreamError {
     pub context: Vec<String>,
 }
 
+impl serde::ser::StdError for StreamError {}
+
 impl StreamError {
     pub fn new_context(error: std::io::Error, pos: u64, context: Vec<String>) -> Self {
         Self {
@@ -29,6 +31,10 @@ impl StreamError {
             pos,
             context: Vec::new(),
         }
+    }
+
+    pub fn new_str(error: &str, pos: u64) -> Self {
+        Self::new(std::io::Error::other(error), pos)
     }
 
     pub fn add_context<C: ToString>(self, new_context: C) -> Self {

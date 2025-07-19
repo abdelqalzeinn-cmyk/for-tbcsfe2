@@ -26,7 +26,7 @@ pub struct DateTime {
     pub second: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct GVCC {
     pub cc: CountryCode,
     pub gv: GameVersion,
@@ -210,9 +210,9 @@ impl Readable for UnlockPopups8 {
     ) -> StreamResult<Self> {
         let length = match args.gv.0 {
             0 | 1 => 3,
-            2 | 3 | 4 => 4,
+            2..=4 => 4,
             5 => 5,
-            6 | 7 | 8 | 9 => 6,
+            6..=9 => 6,
             _ => 36,
         };
 
@@ -231,9 +231,9 @@ impl Writable for UnlockPopups8 {
     ) -> StreamResult<()> {
         let length = match args.gv.0 {
             0 | 1 => 3,
-            2 | 3 | 4 => 4,
+            2..=4 => 4,
             5 => 5,
-            6 | 7 | 8 | 9 => 6,
+            6..=9 => 6,
             _ => 36,
         };
 
@@ -241,7 +241,44 @@ impl Writable for UnlockPopups8 {
     }
 }
 
-#[derive(Debug, Clone, Readable, Writable)]
+#[derive(Debug, Clone, Default)]
+pub struct SaveFile {
+    pub save: Save,
+    pub gvcc: GVCC,
+}
+
+impl Writable for SaveFile {
+    type Args<'a> = ();
+
+    fn write<W: std::io::Write + std::io::Seek>(
+        &self,
+        writer: &mut W,
+        _args: Self::Args<'_>,
+    ) -> StreamResult<()> {
+        self.gvcc.gv.write_no_opts(writer)?;
+        self.save.write(writer, self.gvcc)?;
+
+        Ok(())
+    }
+}
+
+impl Readable for SaveFile {
+    type Args<'a> = CountryCode;
+    fn read<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        args: Self::Args<'_>,
+    ) -> StreamResult<Self> {
+        let gv = GameVersion::read_no_opts(reader)?;
+
+        let gvcc = GVCC { gv, cc: args };
+
+        let save = Save::read(reader, gvcc)?;
+
+        Ok(Self { save, gvcc })
+    }
+}
+
+#[derive(Debug, Clone, Readable, Writable, Default)]
 pub struct Save {
     // pub game_version: GameVersion,
     #[rw(gvcc)]
@@ -931,7 +968,7 @@ impl Writable for Ubl1 {
     }
 }
 
-#[derive(Debug, Clone, Copy, Readable, Writable)]
+#[derive(Debug, Clone, Copy, Readable, Writable, Default)]
 pub struct GatyaData {
     pub stepup_stage_3_cooldown: i32,
     pub previous_normal_roll: i32,
@@ -1007,6 +1044,12 @@ impl Writable for EventStageLegendRestriction {
 pub enum UnlockedSlots {
     Individual([bool; 10]),
     One(i8),
+}
+
+impl Default for UnlockedSlots {
+    fn default() -> Self {
+        Self::One(0)
+    }
 }
 
 impl Readable for UnlockedSlots {
@@ -1665,13 +1708,13 @@ impl Writable for CatStorage {
     }
 }
 
-#[derive(Debug, Clone, Readable, Writable)]
+#[derive(Debug, Clone, Readable, Writable, Default)]
 pub struct BonusHash {
     pub unknown_1: HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>,
     pub unknown_2: HashMapLength<VariableLengthInt, VariableLengthInt, u8>,
 }
 
-#[derive(Debug, Copy, Clone, Readable, Writable)]
+#[derive(Debug, Copy, Clone, Readable, Writable, Default)]
 pub struct StoryTreasureFestival {
     pub time_until_chance: [i32; TOTAL_STORY_CHAPTERS],
     pub duration: [i32; TOTAL_STORY_CHAPTERS],
@@ -1680,7 +1723,7 @@ pub struct StoryTreasureFestival {
     pub festival_type: [i32; TOTAL_STORY_CHAPTERS],
 }
 
-#[derive(Debug, Copy, Clone, Readable, Writable)]
+#[derive(Debug, Copy, Clone, Readable, Writable, Default)]
 pub struct LockedBattleItems {
     pub lock_item: bool,
     pub locked_items: [bool; TOTAL_BATTLE_ITEMS],
@@ -1699,7 +1742,7 @@ impl Readable for UnknownEarlyBoolList {
     ) -> StreamResult<Self> {
         let length = match args.gv.0 {
             0 | 1 => VecArgs::new_empty_fixed(39),
-            2 | 3 | 4 => VecArgs::new_empty_fixed(69),
+            2..=4 => VecArgs::new_empty_fixed(69),
             _ => VecArgs::new_empty_fixed(0),
         };
 
@@ -1718,7 +1761,7 @@ impl Writable for UnknownEarlyBoolList {
     ) -> StreamResult<()> {
         let length = match args.gv.0 {
             0 | 1 => VecArgs::new_empty_fixed(39),
-            2 | 3 | 4 => VecArgs::new_empty_fixed(69),
+            2..=4 => VecArgs::new_empty_fixed(69),
             _ => VecArgs::new_empty_fixed(0),
         };
         self.data.write(writer, length)
@@ -1956,7 +1999,7 @@ pub struct CatsField<T>(pub T);
 pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
     Some(match gv.0 {
         1 => 88,
-        2 | 3 | 4 => 122,
+        2..=4 => 122,
         5 => 144,
         6 => 172,
         7 | 8 => 179,
@@ -2094,7 +2137,7 @@ impl Writable for LineUps {
     }
 }
 
-#[derive(Debug, Copy, Clone, Readable, Writable)]
+#[derive(Debug, Copy, Clone, Readable, Writable, Default)]
 pub struct StampData {
     pub current_stamp: i32,
     pub collected_stamps: [i32; 30],
@@ -2110,4 +2153,15 @@ pub struct StoryChapters {
     pub chapter_progress: [i32; TOTAL_STORY_CHAPTERS],
     pub clear_times: [[i32; 51]; TOTAL_STORY_CHAPTERS],
     pub treasures: [[i32; 49]; TOTAL_STORY_CHAPTERS],
+}
+
+impl Default for StoryChapters {
+    fn default() -> Self {
+        Self {
+            selected_stages: [0; TOTAL_STORY_CHAPTERS],
+            chapter_progress: [0; TOTAL_STORY_CHAPTERS],
+            clear_times: [[0; 51]; TOTAL_STORY_CHAPTERS],
+            treasures: [[0; 49]; TOTAL_STORY_CHAPTERS],
+        }
+    }
 }

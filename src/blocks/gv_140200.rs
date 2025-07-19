@@ -20,7 +20,7 @@ pub struct DojoRanking2 {
     pub ranking: Vec<DojoRank2>,
 }
 
-#[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[derive(Debug, Clone, Readable, Writable, Default)]
 pub struct DojoRank2 {
     #[rw(gvcc)]
     pub ranking: DojoRanking,

@@ -2,8 +2,8 @@ extern crate proc_macro;
 
 use darling::FromAttributes;
 use proc_macro::TokenStream;
-use quote::{quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, GenericArgument, PathArguments, Type};
+use quote::quote;
+use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse_macro_input};
 
 #[derive(Debug, Copy, Clone, FromAttributes, Default)]
 #[darling(default, attributes(rw))]
@@ -29,20 +29,16 @@ impl Opts {
 }
 
 fn extract_option_type(input: &Type) -> Option<Type> {
-    if let Type::Path(type_path) = input {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Option" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(GenericArgument::Type(inner_type)) = args.args.first() {
-                        return Some(inner_type.clone());
-                    }
-                }
-            }
-        }
+    if let Type::Path(type_path) = input
+        && let Some(segment) = type_path.path.segments.last()
+        && segment.ident == "Option"
+        && let PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(GenericArgument::Type(inner_type)) = args.args.first()
+    {
+        return Some(inner_type.clone());
     }
     None
 }
-
 
 #[proc_macro_derive(Readable, attributes(rw))]
 pub fn readable_derive(input: TokenStream) -> TokenStream {
@@ -74,7 +70,7 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
         let gvcc = opts.gvcc;
 
         let inner_type = extract_option_type(field_type);
-        
+
         let line = if gvcc {
             if opts.is_empty() {
                 quote! {
@@ -85,15 +81,14 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
                     crate::stream::NewResultCtx::add_context(<#inner_type as crate::stream::Readable>::read(reader, args), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
                 }
             }
-        } else {
-            if opts.is_empty() {
-                quote! {
-                    crate::stream::NewResultCtx::add_context(<#field_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
-                }
-            } else {
-                quote! {
-                    crate::stream::NewResultCtx::add_context(<#inner_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
-                }
+        } else if opts.is_empty() {
+            quote! {
+                crate::stream::NewResultCtx::add_context(<#field_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
+            }
+        }
+        else {
+            quote! {
+                crate::stream::NewResultCtx::add_context(<#inner_type as crate::stream::Readable>::read(reader, ()), || format!("read {} for {}", stringify!(#field_name), stringify!(#name)))?
             }
         };
 
@@ -162,8 +157,6 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    
-
     let fields = match input.data {
         Data::Struct(ref data) => match &data.fields {
             Fields::Named(fields) => &fields.named,
@@ -172,15 +165,12 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
         _ => panic!("Writeable can only be derived for structs"),
     };
 
-    
     let all_empty = fields.iter().all(|f| f.attrs.is_empty());
 
     let write_field_impls = fields.iter().map(|field| {
         let opts = Opts::from_attributes(&field.attrs).expect("Wrong options");
         let field_name = &field.ident;
         let field_type = &field.ty;
-
-        
         let min_gv = opts.min_gv.unwrap_or(0);
         let max_gv = opts.max_gv.unwrap_or(u32::MAX);
         let en = opts.en.unwrap_or(true);
@@ -208,20 +198,18 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        else {
-            if opts.is_empty() {
+        else if opts.is_empty() {
                 quote! {
                     crate::stream::NewResultCtx::add_context(self.#field_name.write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                 }
             }
-            else {
-                quote! {
-                    if let Some(ref val) = self.#field_name {
-                        crate::stream::NewResultCtx::add_context(val.write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
-                    }
-                    else {
-                        crate::stream::NewResultCtx::add_context(<#inner_type>::default().write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
-                    }
+        else {
+            quote! {
+                if let Some(ref val) = self.#field_name {
+                    crate::stream::NewResultCtx::add_context(val.write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
+                }
+                else {
+                    crate::stream::NewResultCtx::add_context(<#inner_type>::default().write(writer, ()), || format!("write {} for {}", stringify!(#field_name), stringify!(#name)))?;
                 }
             }
         };
@@ -262,8 +250,7 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-    }
-    else {
+    } else {
         quote! {
             impl crate::stream::Writable for #name {
                 type Args<'a> = crate::save::GVCC;
