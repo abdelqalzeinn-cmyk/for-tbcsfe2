@@ -1,9 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use serde::Deserialize;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub enum CountryCode {
     #[default]
     Jp,
