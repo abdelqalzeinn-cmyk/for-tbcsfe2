@@ -2,6 +2,8 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{Assertable, HashMapLength};
 
+type InnerValue = (i16, i32, HashMapLength<i16, i16, i16>);
+
 #[derive(Debug, Clone, Readable, Writable, Default)]
 pub struct GV130700Block {
     #[rw(en = false, kr = false, tw = false)]
@@ -14,6 +16,6 @@ pub struct GV130700Block {
     pub u7: i8,
     pub u8: i8,
     pub u9: f64,
-    pub u10: HashMapLength<i16, i16, (i16, i32, HashMapLength<i16, i16, i16>)>,
+    pub u10: HashMapLength<i16, i16, InnerValue>,
     pub _130700: Assertable<130700>,
 }
