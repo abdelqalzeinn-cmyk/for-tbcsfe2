@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bcsfe_derive::{Readable, Writable};
 
 pub const TOTAL_STORY_CHAPTERS: usize = 10;
@@ -20,6 +22,18 @@ pub enum InnerChapterType {
     Third,
 }
 
+impl FromStr for InnerChapterType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "first" => Self::First,
+            "second" => Self::Second,
+            "third" => Self::Third,
+            _ => return Err("invalid inner chapter type".to_string()),
+        })
+    }
+}
+
 impl From<InnerChapterType> for usize {
     fn from(value: InnerChapterType) -> Self {
         match value {
@@ -36,10 +50,39 @@ pub enum StoryChapterType {
     Itf(InnerChapterType),
     Cotc(InnerChapterType),
 }
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord, Default)]
+pub enum StoryChapterTypeOuter {
+    #[default]
+    Eoc,
+    Itf,
+    Cotc,
+}
+
+impl FromStr for StoryChapterTypeOuter {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "eoc" => Self::Eoc,
+            "itf" => Self::Itf,
+            "cotc" => Self::Cotc,
+            _ => return Err("invalid story chapter type".to_string()),
+        })
+    }
+}
 
 impl Default for StoryChapterType {
     fn default() -> Self {
         Self::Eoc(InnerChapterType::default())
+    }
+}
+
+impl StoryChapterTypeOuter {
+    pub fn into_main(self, inner: InnerChapterType) -> StoryChapterType {
+        match self {
+            StoryChapterTypeOuter::Eoc => StoryChapterType::Eoc(inner),
+            StoryChapterTypeOuter::Itf => StoryChapterType::Itf(inner),
+            StoryChapterTypeOuter::Cotc => StoryChapterType::Cotc(inner),
+        }
     }
 }
 
@@ -82,6 +125,17 @@ impl StoryChapterType {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct StageId(u8);
+
+impl FromStr for StageId {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let id: u8 = s
+            .parse()
+            .map_err(|e: std::num::ParseIntError| e.to_string())?;
+
+        Self::new(id.saturating_sub(1)).ok_or("invalid stage id".to_string())
+    }
+}
 
 impl From<StageId> for u8 {
     fn from(value: StageId) -> Self {
@@ -242,7 +296,7 @@ impl ClearChapterOptions {
     }
     pub fn with_chapter(self, chapter: StoryChapterType) -> Self {
         Self {
-            chapter: chapter,
+            chapter,
             clear_amount: self.clear_amount,
             add_to_clears: self.add_to_clears,
         }
