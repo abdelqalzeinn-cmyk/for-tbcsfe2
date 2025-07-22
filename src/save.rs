@@ -1,8 +1,11 @@
+use std::{io::Cursor, path::Path};
+
 use crate::{
     blocks::{gv_47::GatyaSeed, gv_58::TOTAL_BATTLE_ITEMS, *},
     country_code::CountryCode,
     game::main_story::{StoryChapters, TOTAL_STORY_CHAPTERS},
     game_version::GameVersion,
+    hash::detect_cc,
     stream::{
         HashMapLength, LengthString, LengthVec, NewResultCtx, Readable, ReadableNoOptions,
         StreamError, StreamResult, VariableLengthInt, VecArgs, VecArgsLength, Writable,
@@ -246,6 +249,36 @@ impl Writable for UnlockPopups8 {
 pub struct SaveFile {
     pub save: Save,
     pub gvcc: GVCC,
+}
+
+impl SaveFile {
+    pub fn load_detect_cc(data: &[u8]) -> StreamResult<SaveFile> {
+        let cc = detect_cc(data).ok_or(StreamError::new_str(
+            "could not detect country code",
+            u64::MAX,
+        ))?;
+
+        let mut reader = Cursor::new(data);
+
+        SaveFile::read(&mut reader, cc.into())
+    }
+    pub fn load_cc(data: &[u8], cc: CountryCode) -> StreamResult<SaveFile> {
+        let mut reader = Cursor::new(data);
+
+        SaveFile::read(&mut reader, cc)
+    }
+
+    pub fn load_from_path_detect_cc(path: &Path) -> StreamResult<SaveFile> {
+        let data = std::fs::read(path)?;
+
+        Self::load_detect_cc(&data)
+    }
+
+    pub fn load_from_path_cc(path: &Path, cc: CountryCode) -> StreamResult<SaveFile> {
+        let data = std::fs::read(path)?;
+
+        Self::load_cc(&data, cc)
+    }
 }
 
 impl Writable for SaveFile {
