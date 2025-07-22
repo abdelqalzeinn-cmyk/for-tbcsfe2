@@ -14,6 +14,8 @@ pub struct StreamError {
     pub context: Vec<String>,
 }
 
+impl std::error::Error for StreamError {}
+
 impl StreamError {
     pub fn new_context(error: std::io::Error, pos: u64, context: Vec<String>) -> Self {
         Self {
@@ -52,6 +54,9 @@ impl StreamError {
 
 impl Display for StreamError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.pos == u64::MAX {
+            return write!(f, "{}", self.error);
+        }
         let string = format!("error: {} at {} with context:", self.error, self.pos);
 
         let mut context_str = String::new();
