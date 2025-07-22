@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use crate::country_code::PatchingCode;
 
 fn split_at_last_32_bytes(data: &[u8]) -> Option<(&[u8], &[u8])> {
