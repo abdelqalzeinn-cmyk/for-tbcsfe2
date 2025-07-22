@@ -6,6 +6,12 @@ edition = "2024"
 [dependencies]
 bcsfe_derive = { path = "./bcsfe_derive" }
 md5 = "0.8"
+thiserror = "2.0"
+rfd = { version = "0.15", optional = true }
+iced = { version = "0.13", optional = true }
 
 [workspace]
 members = ["bcsfe_derive"]
+
+[features]
+gui = ["dep:iced", "dep:rfd"]
