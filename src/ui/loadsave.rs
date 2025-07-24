@@ -32,6 +32,12 @@ pub enum SaveSource {
     Path(PathBuf),
 }
 
+impl Default for SaveSource {
+    fn default() -> Self {
+        Self::Path(PathBuf::default())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LoadedSaveFile {
     pub source: SaveSource,
