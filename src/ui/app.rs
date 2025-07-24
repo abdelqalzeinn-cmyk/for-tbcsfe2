@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::PathBuf};
 
 use iced::{
     Element, Length, Pixels, Task, Theme,
@@ -6,13 +6,18 @@ use iced::{
     widget::{button::Catalog, column, container, container::bordered_box, row},
 };
 
-use crate::ui::loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile};
+use crate::ui::{
+    catfood::{CatfoodMsg, CatfoodView},
+    loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
+    savesave::{SaveSave, SaveSaveMsg},
+};
 
 #[derive(Debug)]
 pub struct ApplicationState {
     pub save_file: Option<LoadedSaveFile>,
     pub theme: Theme,
     pub current_error: Option<String>,
+    pub current_notif: Option<String>,
     pub selected_screen: Option<UIOption>,
 }
 
@@ -22,19 +27,29 @@ impl Default for ApplicationState {
             save_file: None,
             theme: Theme::CatppuccinMocha,
             current_error: None,
+            current_notif: None,
             selected_screen: Some(UIOption::LoadSave(LoadSave::default())),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum UIOption {
     LoadSave(LoadSave),
-    SaveSave,
-    Catfood,
+    SaveSave(SaveSave),
+    Catfood(CatfoodView),
 }
 
 impl UIOption {
+    pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) {
+        if let Some(save_file) = save_file {
+            match self {
+                UIOption::LoadSave(_) => {}
+                UIOption::SaveSave(save_save) => save_save.init(save_file),
+                UIOption::Catfood(catfood_view) => catfood_view.init(&save_file.save_file),
+            }
+        }
+    }
     pub fn base_matches(&self, other: &Self) -> bool {
         macro_rules! matches_opt {
             [$($var:pat),+] => {
@@ -43,22 +58,22 @@ impl UIOption {
                 }
             };
         }
-        matches_opt![Self::LoadSave(_), Self::SaveSave, Self::Catfood]
+        matches_opt![Self::LoadSave(_), Self::SaveSave(_), Self::Catfood(_)]
     }
     pub fn all() -> Vec<UIOption> {
         vec![
             UIOption::LoadSave(LoadSave::default()),
-            Self::SaveSave,
-            Self::Catfood,
+            Self::SaveSave(SaveSave::default()),
+            Self::Catfood(CatfoodView::default()),
         ]
     }
 
-    pub fn view(&self) -> Element<'_, Message> {
-        match self {
+    pub fn view(&self) -> Option<Element<'_, Message>> {
+        Some(match self {
             UIOption::LoadSave(load_save) => load_save.view(),
-            UIOption::SaveSave => todo!(),
-            UIOption::Catfood => todo!(),
-        }
+            UIOption::SaveSave(save_save) => save_save.view(),
+            UIOption::Catfood(catfood) => catfood.view(),
+        })
     }
 
     pub fn needs_save_file(&self) -> bool {
@@ -73,8 +88,8 @@ impl Display for &UIOption {
             "{}",
             match self {
                 UIOption::LoadSave(_) => "Load Save",
-                UIOption::Catfood => "Catfood",
-                UIOption::SaveSave => "Save Save",
+                UIOption::Catfood(_) => "Catfood",
+                UIOption::SaveSave(_) => "Save Save",
             }
         )
     }
@@ -89,9 +104,30 @@ impl ApplicationState {
                     return selected.update(msg);
                 }
             }
-            Message::ChangePane(uioption) => self.selected_screen = Some(uioption),
+            Message::ChangePane(mut uioption) => {
+                uioption.init(self.save_file.as_ref());
+                self.selected_screen = Some(uioption);
+            }
             Message::LoadedSave(save_file) => self.save_file = Some(*save_file),
             Message::Error(e) => self.current_error = Some(e),
+            Message::Catfood(msg) => {
+                if let Some(UIOption::Catfood(ref mut selected)) = self.selected_screen
+                    && let Some(ref mut save_file) = self.save_file
+                {
+                    return selected.update(msg, &mut save_file.save_file);
+                }
+            }
+            Message::SaveSave(save_save_msg) => {
+                if let Some(UIOption::SaveSave(ref mut selected)) = self.selected_screen
+                    && let Some(ref save_file) = self.save_file
+                {
+                    return selected.update(save_save_msg, &save_file.save_file);
+                }
+            }
+            Message::SavedSave(path_buf) => {
+                self.current_notif = Some(format!("saved save to: {}", path_buf.to_string_lossy()))
+            }
+            Message::Notif(notif) => self.current_notif = Some(notif),
         };
         Task::none()
     }
@@ -102,6 +138,10 @@ impl ApplicationState {
             let errors =
                 iced::widget::text(error).color(self.theme.extended_palette().danger.strong.color);
             notif_row.push(errors.into());
+        }
+        if let Some(ref notif) = self.current_notif {
+            let notifs = iced::widget::text(notif);
+            notif_row.push(notifs.into());
         }
         let title: Element<Message> = iced::widget::text("Battle Cats Save File Editor")
             .size(30)
@@ -164,13 +204,18 @@ impl ApplicationState {
                 .size(20)
                 .color(self.theme.palette().primary)
                 .into();
-            let second_pannel: Element<Message> =
-                container(column([heading, selected.view()]).spacing(10))
-                    .style(bordered_box)
-                    .width(Length::FillPortion(8))
-                    .height(Length::Fill)
-                    .padding(5)
-                    .into();
+            let selected_view = selected.view();
+            let mut col = Vec::new();
+            col.push(heading);
+            if let Some(view) = selected_view {
+                col.push(view);
+            }
+            let second_pannel: Element<Message> = container(column(col).spacing(10))
+                .style(bordered_box)
+                .width(Length::FillPortion(8))
+                .height(Length::Fill)
+                .padding(5)
+                .into();
 
             pannel2.push(second_pannel);
         }
@@ -202,7 +247,11 @@ pub enum Message {
     LoadedSave(Box<LoadedSaveFile>),
     ChangePane(UIOption),
     LoadSave(LoadSaveMsg),
+    Catfood(CatfoodMsg),
     Error(String),
+    Notif(String),
+    SaveSave(SaveSaveMsg),
+    SavedSave(PathBuf),
 }
 
 pub fn run() -> iced::Result {
