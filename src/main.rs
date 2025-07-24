@@ -1,5 +1,3 @@
-use std::process::exit;
-
 pub mod blocks;
 pub mod country_code;
 pub mod game;
@@ -10,6 +8,7 @@ pub mod stream;
 #[cfg(feature = "gui")]
 pub mod ui;
 
+#[cfg(feature = "gui")]
 fn start() -> Result<(), Box<dyn std::error::Error>> {
     Ok(ui::app::run()?)
 }
@@ -18,6 +17,8 @@ fn start() -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     if let Err(e) = start() {
         eprint!("{e}");
-        exit(1);
+        std::process::exit(1);
     }
 }
+#[cfg(not(feature = "gui"))]
+fn main() {}
