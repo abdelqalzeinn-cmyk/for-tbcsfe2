@@ -5,7 +5,7 @@ use crate::{
     country_code::CountryCode,
     game::main_story::{StoryChapters, TOTAL_STORY_CHAPTERS},
     game_version::GameVersion,
-    hash::detect_cc,
+    hash::{add_hash, detect_cc},
     stream::{
         HashMapLength, LengthString, LengthVec, NewResultCtx, Readable, ReadableNoOptions,
         StreamError, StreamResult, VariableLengthInt, VecArgs, VecArgsLength, Writable,
@@ -266,6 +266,29 @@ impl SaveFile {
         let mut reader = Cursor::new(data);
 
         SaveFile::read(&mut reader, cc)
+    }
+
+    pub fn write_with_hash(&self) -> StreamResult<Vec<u8>> {
+        let mut writer = Cursor::new(Vec::new());
+        self.write_no_opts(&mut writer)?;
+
+        let data = writer.into_inner();
+
+        let data = add_hash(&data, self.gvcc.cc.into())
+            .ok_or(StreamError::new_str("failed to add hash", u64::MAX))?;
+
+        Ok(data)
+    }
+
+    pub fn write_to_path(&self, path: &Path) -> StreamResult<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let data = self.write_with_hash()?;
+
+        std::fs::write(path, &data)?;
+
+        Ok(())
     }
 
     pub fn load_from_path_detect_cc(path: &Path) -> StreamResult<SaveFile> {
