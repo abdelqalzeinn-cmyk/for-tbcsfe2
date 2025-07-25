@@ -7,7 +7,8 @@ use iced::{
 };
 
 use crate::ui::{
-    catfood::{CatfoodMsg, CatfoodView},
+    catfood::{CatfoodView, XPView},
+    editview::{BasicItemMessage, BasicItemView, EditView},
     loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
     savesave::{SaveSave, SaveSaveMsg},
 };
@@ -37,7 +38,8 @@ impl Default for ApplicationState {
 pub enum UIOption {
     LoadSave(LoadSave),
     SaveSave(SaveSave),
-    Catfood(CatfoodView),
+    Catfood(BasicItemView<CatfoodView>),
+    Xp(BasicItemView<XPView>),
 }
 
 impl UIOption {
@@ -47,6 +49,7 @@ impl UIOption {
                 UIOption::LoadSave(_) => {}
                 UIOption::SaveSave(save_save) => save_save.init(save_file),
                 UIOption::Catfood(catfood_view) => catfood_view.init(&save_file.save_file),
+                UIOption::Xp(basic_item_view) => basic_item_view.init(&save_file.save_file),
             }
         }
     }
@@ -58,13 +61,19 @@ impl UIOption {
                 }
             };
         }
-        matches_opt![Self::LoadSave(_), Self::SaveSave(_), Self::Catfood(_)]
+        matches_opt![
+            Self::LoadSave(_),
+            Self::SaveSave(_),
+            Self::Catfood(_),
+            Self::Xp(_)
+        ]
     }
     pub fn all() -> Vec<UIOption> {
         vec![
             UIOption::LoadSave(LoadSave::default()),
             Self::SaveSave(SaveSave::default()),
-            Self::Catfood(CatfoodView::default()),
+            Self::Catfood(BasicItemView::default()),
+            Self::Xp(BasicItemView::default()),
         ]
     }
 
@@ -73,6 +82,7 @@ impl UIOption {
             UIOption::LoadSave(load_save) => load_save.view(),
             UIOption::SaveSave(save_save) => save_save.view(),
             UIOption::Catfood(catfood) => catfood.view(),
+            UIOption::Xp(basic_item_view) => basic_item_view.view(),
         })
     }
 
@@ -90,6 +100,7 @@ impl Display for &UIOption {
                 UIOption::LoadSave(_) => "Load Save",
                 UIOption::Catfood(_) => "Catfood",
                 UIOption::SaveSave(_) => "Save Save",
+                UIOption::Xp(_) => "XP",
             }
         )
     }
@@ -110,11 +121,18 @@ impl ApplicationState {
             }
             Message::LoadedSave(save_file) => self.save_file = Some(*save_file),
             Message::Error(e) => self.current_error = Some(e),
-            Message::Catfood(msg) => {
-                if let Some(UIOption::Catfood(ref mut selected)) = self.selected_screen
-                    && let Some(ref mut save_file) = self.save_file
+            Message::BasicItem(msg) => {
+                if let Some(ref mut save_file) = self.save_file
+                    && let Some(ref mut option) = self.selected_screen
                 {
-                    return selected.update(msg, &mut save_file.save_file);
+                    let save_file = &mut save_file.save_file;
+                    return match option {
+                        UIOption::Catfood(basic_item_view) => {
+                            basic_item_view.update(msg, save_file)
+                        }
+                        UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file),
+                        _ => Task::none(),
+                    };
                 }
             }
             Message::SaveSave(save_save_msg) => {
@@ -247,7 +265,7 @@ pub enum Message {
     LoadedSave(Box<LoadedSaveFile>),
     ChangePane(UIOption),
     LoadSave(LoadSaveMsg),
-    Catfood(CatfoodMsg),
+    BasicItem(BasicItemMessage),
     Error(String),
     Notif(String),
     SaveSave(SaveSaveMsg),

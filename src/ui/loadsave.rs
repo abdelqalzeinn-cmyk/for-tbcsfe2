@@ -6,14 +6,21 @@ use iced::{
     widget::{container::bordered_box, text::LineHeight},
 };
 
-use crate::{save::SaveFile, ui::app::Message};
+use crate::{
+    country_code::CountryCode, network::transfers::from_codes, save::SaveFile, ui::app::Message,
+};
 
 #[derive(Debug, Clone)]
 pub enum LoadSaveMsg {
     SelectPath,
+    FromCodes,
     LoadPath,
     OnSaveInput(String),
     SelectedPath(Option<PathBuf>),
+    LoadedCodes(crate::network::transfers::FromCodesResponse),
+    OnTransferInput(String),
+    OnConfirmationInput(String),
+    SelectCC(CountryCode),
 }
 
 impl LoadedSaveFile {
@@ -21,6 +28,7 @@ impl LoadedSaveFile {
         let text = iced::widget::text("Save File: ");
         let item: Element<Message> = match &self.source {
             SaveSource::Path(path) => iced::widget::text(path.to_string_lossy()).into(),
+            SaveSource::TransferCodes => iced::widget::text("transfer codes!!!").into(),
         };
 
         iced::widget::row([text.into(), item]).into()
@@ -30,6 +38,7 @@ impl LoadedSaveFile {
 #[derive(Debug, Clone)]
 pub enum SaveSource {
     Path(PathBuf),
+    TransferCodes,
 }
 
 impl Default for SaveSource {
@@ -57,6 +66,9 @@ pub async fn select_save() -> Option<PathBuf> {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LoadSave {
     pub save_path: String,
+    pub transfer_code: String,
+    pub confirmation_code: String,
+    pub selected_cc: Option<CountryCode>,
 }
 
 impl LoadSave {
@@ -77,6 +89,39 @@ impl LoadSave {
                     self.save_path = path.to_string_lossy().to_string()
                 }
             }
+            LoadSaveMsg::FromCodes => {
+                return Task::done(Message::Notif("downloading save...".to_string())).chain(
+                    Task::perform(
+                        from_codes(
+                            self.transfer_code.clone(),
+                            self.confirmation_code.clone(),
+                            self.selected_cc.unwrap_or_default(),
+                            crate::game_version::GameVersion(140500),
+                            None,
+                            None,
+                        ),
+                        |r| match r {
+                            Ok(v) => Message::LoadSave(LoadSaveMsg::LoadedCodes(v)),
+                            Err(e) => Message::Error(e.to_string()),
+                        },
+                    ),
+                );
+            }
+            LoadSaveMsg::LoadedCodes(r) => {
+                let save_file = SaveFile::load_detect_cc(&r.save_data);
+                match save_file {
+                    Ok(s) => {
+                        return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
+                            source: SaveSource::TransferCodes,
+                            save_file: s,
+                        })));
+                    }
+                    Err(e) => return Task::done(Message::Error(e.to_string())),
+                }
+            }
+            LoadSaveMsg::OnTransferInput(t) => self.transfer_code = t,
+            LoadSaveMsg::OnConfirmationInput(c) => self.confirmation_code = c,
+            LoadSaveMsg::SelectCC(country_code) => self.selected_cc = Some(country_code),
         };
         Task::none()
     }
@@ -90,38 +135,95 @@ impl LoadSave {
         })
     }
     pub fn view(&self) -> Element<'_, Message> {
-        let save_path_layout: Element<Message> = iced::widget::container(
-            iced::widget::row([
-                iced::widget::text("Save Path:")
-                    .align_y(Vertical::Center)
-                    .height(Length::Fixed(30.0))
-                    .into(),
-                iced::widget::button("Select Path")
-                    .on_press(Message::LoadSave(LoadSaveMsg::SelectPath))
-                    .into(),
-                iced::widget::container(
-                    iced::widget::text_input("Save Path", &self.save_path)
-                        .size(15)
-                        .line_height(LineHeight::Relative(1.5))
-                        .on_input(|p| Message::LoadSave(LoadSaveMsg::OnSaveInput(p))),
-                )
-                .align_y(Vertical::Center)
-                .into(),
-                iced::widget::button("Load")
-                    .on_press_maybe(match std::fs::exists(&self.save_path) {
-                        Ok(exists) => match exists {
-                            true => Some(Message::LoadSave(LoadSaveMsg::LoadPath)),
-                            false => None,
-                        },
-                        Err(_) => None,
-                    })
-                    .into(),
-            ])
-            .spacing(10),
+        let save_path_layout = self.view_save_path_layout();
+        let transfer_code_layout = self.view_transfer_code_layout();
+        iced::widget::container(
+            iced::widget::column([save_path_layout, transfer_code_layout]).spacing(10),
         )
-        .padding(10)
-        .style(bordered_box)
-        .into();
-        iced::widget::container(iced::widget::column([save_path_layout])).into()
+        .into()
+    }
+
+    fn view_transfer_code_layout(&self) -> Element<'_, Message> {
+        let transfer_code_layout = iced::widget::row([
+            iced::widget::text("Transfer Code:")
+                .align_y(Vertical::Center)
+                .height(Length::Fixed(30.0))
+                .into(),
+            iced::widget::text_input("Transfer Code", &self.transfer_code)
+                .size(15)
+                .line_height(LineHeight::Relative(1.5))
+                .on_input(|t| Message::LoadSave(LoadSaveMsg::OnTransferInput(t)))
+                .into(),
+            iced::widget::text("Confirmation Code:")
+                .align_y(Vertical::Center)
+                .height(Length::Fixed(30.0))
+                .into(),
+            iced::widget::text_input("Confirmation Code", &self.confirmation_code)
+                .size(15)
+                .line_height(LineHeight::Relative(1.5))
+                .on_input(|c| Message::LoadSave(LoadSaveMsg::OnConfirmationInput(c)))
+                .into(),
+            iced::widget::text("Country Code:")
+                .align_y(Vertical::Center)
+                .height(Length::Fixed(30.0))
+                .into(),
+            iced::widget::pick_list(CountryCode::ALL, self.selected_cc, |c| {
+                Message::LoadSave(LoadSaveMsg::SelectCC(c))
+            })
+            .into(),
+            iced::widget::button("Load")
+                .on_press_maybe(
+                    if self.transfer_code.is_empty()
+                        || self.confirmation_code.is_empty()
+                        || self.selected_cc.is_none()
+                    {
+                        None
+                    } else {
+                        Some(Message::LoadSave(LoadSaveMsg::FromCodes))
+                    },
+                )
+                .into(),
+        ])
+        .spacing(10);
+
+        iced::widget::container(transfer_code_layout)
+            .padding(10)
+            .style(bordered_box)
+            .into()
+    }
+
+    fn view_save_path_layout(&self) -> Element<'_, Message> {
+        let select_save_layout = iced::widget::row([
+            iced::widget::text("Save Path:")
+                .align_y(Vertical::Center)
+                .height(Length::Fixed(30.0))
+                .into(),
+            iced::widget::button("Select Path")
+                .on_press(Message::LoadSave(LoadSaveMsg::SelectPath))
+                .into(),
+            iced::widget::container(
+                iced::widget::text_input("Save Path", &self.save_path)
+                    .size(15)
+                    .line_height(LineHeight::Relative(1.5))
+                    .on_input(|p| Message::LoadSave(LoadSaveMsg::OnSaveInput(p))),
+            )
+            .align_y(Vertical::Center)
+            .into(),
+            iced::widget::button("Load")
+                .on_press_maybe(match std::fs::exists(&self.save_path) {
+                    Ok(exists) => match exists {
+                        true => Some(Message::LoadSave(LoadSaveMsg::LoadPath)),
+                        false => None,
+                    },
+                    Err(_) => None,
+                })
+                .into(),
+        ])
+        .spacing(10);
+        let save_path_layout: Element<Message> = iced::widget::container(select_save_layout)
+            .padding(10)
+            .style(bordered_box)
+            .into();
+        save_path_layout
     }
 }

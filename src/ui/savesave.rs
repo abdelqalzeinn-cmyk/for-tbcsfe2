@@ -82,6 +82,7 @@ impl SaveSave {
     pub fn init(&mut self, save_file: &LoadedSaveFile) {
         match &save_file.source {
             SaveSource::Path(path_buf) => self.save_path = path_buf.to_string_lossy().to_string(),
+            SaveSource::TransferCodes => {}
         }
     }
 
