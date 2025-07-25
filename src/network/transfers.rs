@@ -1,9 +1,8 @@
-use rand::Rng;
 use reqwest::header::{CONTENT_TYPE, HeaderValue};
 
 use crate::{country_code::CountryCode, game_version::GameVersion};
 
-const SAVE_URL: &'static str = "https://nyanko-save.ponosgames.com";
+const SAVE_URL: &str = "https://nyanko-save.ponosgames.com";
 
 #[derive(Debug, serde::Serialize)]
 pub struct Client {
