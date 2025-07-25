@@ -9,6 +9,16 @@ pub enum CountryCode {
     Tw,
 }
 
+#[cfg(feature = "network")]
+impl serde::Serialize for CountryCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
 impl CountryCode {
     pub const ALL: [CountryCode; 4] = [
         CountryCode::Jp,

@@ -8,10 +8,15 @@ bcsfe_derive = { path = "./bcsfe_derive" }
 md5 = "0.8"
 thiserror = "2.0"
 rfd = { version = "0.15", optional = true }
-iced = { version = "0.13", optional = true }
+iced = { version = "0.13", optional = true, features = ["tokio"] }
+reqwest = { version = "0.12", optional = true }
+serde = { version = "1.0", optional = true, features = ["derive"] }
+serde_json = { version = "1.0", optional = true }
+rand = { version = "0.9", optional = true }
 
 [workspace]
 members = ["bcsfe_derive"]
 
 [features]
-gui = ["dep:iced", "dep:rfd"]
+gui = ["dep:iced", "dep:rfd", "network"]
+network = ["dep:reqwest", "dep:serde", "dep:rand", "dep:serde_json"]

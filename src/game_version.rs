@@ -79,6 +79,16 @@ impl FromStr for GameVersion {
     }
 }
 
+#[cfg(feature = "network")]
+impl serde::Serialize for GameVersion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
 impl Readable for GameVersion {
     type Args<'a> = ();
     fn read<R: std::io::Read + std::io::Seek>(

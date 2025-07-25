@@ -3,6 +3,8 @@ pub mod country_code;
 pub mod game;
 pub mod game_version;
 pub mod hash;
+#[cfg(feature = "network")]
+pub mod network;
 pub mod save;
 pub mod stream;
 #[cfg(feature = "gui")]
