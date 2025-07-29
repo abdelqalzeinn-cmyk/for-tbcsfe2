@@ -160,7 +160,6 @@ pub async fn from_codes(
     let payload = ReceptionPayload::new(client_info, confirmation_code);
 
     let payload_str = serde_json::to_string(&payload).map_err(FromCodesError::SerdeJson)?;
-    // .replace(" ", ""); TODO: check this
 
     let client = new_client().map_err(FromCodesError::NewClient)?;
 
@@ -184,8 +183,8 @@ pub async fn from_codes(
     let body = resp.bytes().await.map_err(FromCodesError::Body)?;
     Ok(FromCodesResponse {
         save_data: body.into(),
-        password_refresh_token,
-        password,
+        password_refresh_token, // TODO: deal with this
+        password,               // TODO: and this
     })
 }
 
