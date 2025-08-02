@@ -98,6 +98,21 @@ impl StoryChapterType {
         Self::Cotc(InnerChapterType::Second),
         Self::Cotc(InnerChapterType::Third),
     ];
+
+    pub fn from_usize_human(i: usize) -> Option<StoryChapterType> {
+        Some(match i {
+            0 => Self::Eoc(InnerChapterType::First),
+            1 => Self::Eoc(InnerChapterType::Second),
+            2 => Self::Eoc(InnerChapterType::Third),
+            3 => Self::Itf(InnerChapterType::First),
+            4 => Self::Itf(InnerChapterType::Second),
+            5 => Self::Itf(InnerChapterType::Third),
+            6 => Self::Cotc(InnerChapterType::First),
+            7 => Self::Cotc(InnerChapterType::Second),
+            8 => Self::Cotc(InnerChapterType::Third),
+            _ => return None,
+        })
+    }
 }
 
 impl StoryChapterType {
