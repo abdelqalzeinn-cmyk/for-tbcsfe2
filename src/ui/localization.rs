@@ -13,7 +13,7 @@ impl LocaleManager {
     fn read_res(
         locale: &LanguageIdentifier,
         asset_manager: &AssetManager,
-    ) -> Result<FluentResource, std::io::Error> {
+    ) -> Result<Vec<FluentResource>, std::io::Error> {
         let str_data = asset_manager.read_asset_str(
             &Path::new("locales")
                 .join(&locale.to_string())
@@ -28,19 +28,21 @@ impl LocaleManager {
             ))
         })?;
 
-        Ok(res)
+        Ok(vec![res])
     }
 
     pub fn new(
         locale: LanguageIdentifier,
         asset_manager: &AssetManager,
     ) -> Result<Self, std::io::Error> {
-        let res = Self::read_res(&locale, asset_manager)?;
+        let reses = Self::read_res(&locale, asset_manager)?;
         let mut bundle = FluentBundle::new(vec![locale]);
 
-        bundle.add_resource(res).map_err(|e| {
-            std::io::Error::other(e.first().map(|v| v.to_string()).unwrap_or_default())
-        })?;
+        for res in reses {
+            bundle.add_resource(res).map_err(|e| {
+                std::io::Error::other(e.first().map(|v| v.to_string()).unwrap_or_default())
+            })?;
+        }
 
         Ok(Self { bundle })
     }
