@@ -1,41 +1,36 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use iced::{
     Element, Length, Pixels, Task, Theme,
     alignment::{Horizontal, Vertical},
     widget::{button::Catalog, column, container, container::bordered_box, row},
 };
+use unic_langid::LanguageIdentifier;
 
 use crate::{
     save::SaveFile,
     ui::{
+        asset::AssetManager,
         catfood::{CatfoodView, XPView},
         editview::{BasicItemMessage, BasicItemView, EditView},
         loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
+        localization::{LocaleManager, Localizable},
         mainstory::{MainStory, MainStoryMsg},
         savesave::{SaveSave, SaveSaveMsg},
     },
 };
 
-#[derive(Debug)]
 pub struct ApplicationState {
     pub save_file: Option<LoadedSaveFile>,
     pub theme: Theme,
     pub current_error: Option<String>,
     pub current_notif: Option<String>,
     pub selected_screen: Option<UIOption>,
-}
-
-impl Default for ApplicationState {
-    fn default() -> Self {
-        Self {
-            save_file: None,
-            theme: Theme::CatppuccinMocha,
-            current_error: None,
-            current_notif: None,
-            selected_screen: Some(UIOption::LoadSave(LoadSave::default())),
-        }
-    }
+    pub locale_manager: LocaleManager,
 }
 
 #[derive(Debug, Clone)]
@@ -130,11 +125,11 @@ impl UIOption {
             };
         }
         get_str![
-            LoadSave => "Load Save",
-            Catfood => "Catfood",
-            SaveSave => "Save Save",
-            Xp => "XP",
-            MainStory => "Main Story"
+            LoadSave => "load-save",
+            Catfood => "catfood",
+            SaveSave => "save-save",
+            Xp => "xp",
+            MainStory => "main-story"
         ]
     }
 }
@@ -200,7 +195,7 @@ impl ApplicationState {
             let notifs = iced::widget::text(notif);
             notif_row.push(notifs.into());
         }
-        let title: Element<Message> = iced::widget::text("Battle Cats Save File Editor")
+        let title: Element<Message> = iced::widget::text(self.locale_manager.localize("title"))
             .size(30)
             .color(self.theme.palette().primary)
             .width(Length::Fill)
@@ -231,7 +226,7 @@ impl ApplicationState {
                 .selected_screen
                 .as_ref()
                 .is_some_and(|s| s.base_matches(&opt));
-            let mut text = iced::widget::text((&opt).to_string());
+            let mut text = iced::widget::text((&opt).localize(&self.locale_manager));
             if is_selected {
                 text = text.color(self.theme.extended_palette().success.strong.text);
             }
@@ -257,7 +252,7 @@ impl ApplicationState {
         pannel2.push(column(option_row).spacing(Pixels(10.0)).into());
 
         if let Some(ref selected) = self.selected_screen {
-            let heading = iced::widget::text(selected.to_string())
+            let heading = iced::widget::text(selected.localize(&self.locale_manager))
                 .size(20)
                 .color(self.theme.palette().primary)
                 .into();
@@ -294,7 +289,19 @@ impl ApplicationState {
     pub fn new(
         filepath: Option<PathBuf>,
     ) -> Result<(Self, Task<Message>), Box<dyn std::error::Error>> {
-        let mut app = <Self as Default>::default();
+        let mut app = Self {
+            save_file: None,
+            theme: Theme::CatppuccinMocha,
+            current_error: None,
+            current_notif: None,
+            selected_screen: Some(UIOption::LoadSave(LoadSave::default())),
+            locale_manager: LocaleManager::new(
+                LanguageIdentifier::from_str("en").unwrap(),
+                &AssetManager::new_from_base_path(Path::new("/home/henry/repos/bcsfe_rs/assets/"))
+                    .unwrap(),
+            )
+            .unwrap(),
+        };
 
         if let Some(path) = filepath {
             let save = SaveFile::load_from_path_detect_cc(&path)?;
