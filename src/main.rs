@@ -11,13 +11,10 @@ pub mod stream;
 pub mod ui;
 
 #[cfg(feature = "gui")]
-fn start() -> Result<(), Box<dyn std::error::Error>> {
-    Ok(ui::app::run()?)
-}
-
-#[cfg(feature = "gui")]
 fn main() {
-    if let Err(e) = start() {
+    let mut args = std::env::args();
+    let filepath = args.nth(1);
+    if let Err(e) = ui::app::run(filepath.map(std::path::PathBuf::from)) {
         eprint!("{e}");
         std::process::exit(1);
     }

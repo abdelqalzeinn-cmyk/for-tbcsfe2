@@ -6,11 +6,15 @@ use iced::{
     widget::{button::Catalog, column, container, container::bordered_box, row},
 };
 
-use crate::ui::{
-    catfood::{CatfoodView, XPView},
-    editview::{BasicItemMessage, BasicItemView, EditView},
-    loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
-    savesave::{SaveSave, SaveSaveMsg},
+use crate::{
+    save::SaveFile,
+    ui::{
+        catfood::{CatfoodView, XPView},
+        editview::{BasicItemMessage, BasicItemView, EditView},
+        loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
+        mainstory::{MainStory, MainStoryMsg},
+        savesave::{SaveSave, SaveSaveMsg},
+    },
 };
 
 #[derive(Debug)]
@@ -40,69 +44,104 @@ pub enum UIOption {
     SaveSave(SaveSave),
     Catfood(BasicItemView<CatfoodView>),
     Xp(BasicItemView<XPView>),
+    MainStory(MainStory),
 }
 
 impl UIOption {
     pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) {
         if let Some(save_file) = save_file {
-            match self {
-                UIOption::LoadSave(_) => {}
-                UIOption::SaveSave(save_save) => save_save.init(save_file),
-                UIOption::Catfood(catfood_view) => catfood_view.init(&save_file.save_file),
-                UIOption::Xp(basic_item_view) => basic_item_view.init(&save_file.save_file),
+            macro_rules! init {
+                [$($var:ident),+] => {
+                    match self {
+                        $(UIOption::$var(view) => view.init(&save_file.save_file),)+
+                        _ => {}
+                    }
+                };
+            }
+            init![Catfood, Xp, MainStory];
+            if let UIOption::SaveSave(save_save) = self {
+                save_save.init(save_file)
             }
         }
     }
     pub fn base_matches(&self, other: &Self) -> bool {
         macro_rules! matches_opt {
-            [$($var:pat),+] => {
+            [$($var:ident),+] => {
                 match self {
-                    $($var => matches!(other, $var),)+
+                    $(UIOption::$var(_) => matches!(other, UIOption::$var(_)),)+
                 }
             };
         }
-        matches_opt![
-            Self::LoadSave(_),
-            Self::SaveSave(_),
-            Self::Catfood(_),
-            Self::Xp(_)
-        ]
+        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
     }
     pub fn all() -> Vec<UIOption> {
-        vec![
-            UIOption::LoadSave(LoadSave::default()),
-            Self::SaveSave(SaveSave::default()),
-            Self::Catfood(BasicItemView::default()),
-            Self::Xp(BasicItemView::default()),
+        macro_rules! all {
+            [$($var:ident => $typ:tt),+] => {
+                vec![
+                    $(
+                     UIOption::$var($typ::default()),
+                    )+
+                ]
+            };
+        }
+        all![
+            LoadSave => LoadSave,
+            SaveSave => SaveSave,
+            Catfood => BasicItemView,
+            Xp => BasicItemView,
+            MainStory => MainStory
+
         ]
     }
 
     pub fn view(&self) -> Option<Element<'_, Message>> {
-        Some(match self {
-            UIOption::LoadSave(load_save) => load_save.view(),
-            UIOption::SaveSave(save_save) => save_save.view(),
-            UIOption::Catfood(catfood) => catfood.view(),
-            UIOption::Xp(basic_item_view) => basic_item_view.view(),
-        })
+        macro_rules! view {
+            [$($var:ident),+] => {
+                match self {
+                    $(UIOption::$var(view) => view.view(),)+
+                }
+            };
+        }
+        Some(view![LoadSave, SaveSave, Catfood, Xp, MainStory])
     }
 
     pub fn needs_save_file(&self) -> bool {
         !matches!(self, Self::LoadSave(_))
     }
+
+    pub fn update_basic_item(
+        &mut self,
+        msg: BasicItemMessage,
+        save_file: &mut SaveFile,
+    ) -> Task<Message> {
+        match self {
+            UIOption::Catfood(basic_item_view) => basic_item_view.update(msg, save_file),
+            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file),
+            _ => Task::none(),
+        }
+    }
+
+    pub fn get_str(&self) -> &'static str {
+        macro_rules! get_str {
+            [$($var:ident => $name:literal),+] => {
+                match self {
+                    $(UIOption::$var(_) => $name,)+
+                }
+            };
+        }
+        get_str![
+            LoadSave => "Load Save",
+            Catfood => "Catfood",
+            SaveSave => "Save Save",
+            Xp => "XP",
+            MainStory => "Main Story"
+        ]
+    }
 }
 
 impl Display for &UIOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                UIOption::LoadSave(_) => "Load Save",
-                UIOption::Catfood(_) => "Catfood",
-                UIOption::SaveSave(_) => "Save Save",
-                UIOption::Xp(_) => "XP",
-            }
-        )
+        write!(f, "{}", self.get_str())
     }
 }
 
@@ -125,14 +164,7 @@ impl ApplicationState {
                 if let Some(ref mut save_file) = self.save_file
                     && let Some(ref mut option) = self.selected_screen
                 {
-                    let save_file = &mut save_file.save_file;
-                    return match option {
-                        UIOption::Catfood(basic_item_view) => {
-                            basic_item_view.update(msg, save_file)
-                        }
-                        UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file),
-                        _ => Task::none(),
-                    };
+                    return option.update_basic_item(msg, &mut save_file.save_file);
                 }
             }
             Message::SaveSave(save_save_msg) => {
@@ -146,6 +178,13 @@ impl ApplicationState {
                 self.current_notif = Some(format!("saved save to: {}", path_buf.to_string_lossy()))
             }
             Message::Notif(notif) => self.current_notif = Some(notif),
+            Message::MainStory(msg) => {
+                if let Some(UIOption::MainStory(ref mut selected)) = self.selected_screen
+                    && let Some(ref mut save_file) = self.save_file
+                {
+                    return selected.update(msg, &mut save_file.save_file);
+                }
+            }
         };
         Task::none()
     }
@@ -252,10 +291,20 @@ impl ApplicationState {
         .into()
     }
 
-    pub fn new() -> (Self, Task<Message>) {
-        let app = <Self as Default>::default();
+    pub fn new(
+        filepath: Option<PathBuf>,
+    ) -> Result<(Self, Task<Message>), Box<dyn std::error::Error>> {
+        let mut app = <Self as Default>::default();
 
-        (app, Task::none())
+        if let Some(path) = filepath {
+            let save = SaveFile::load_from_path_detect_cc(&path)?;
+            app.save_file = Some(LoadedSaveFile {
+                source: super::loadsave::SaveSource::Path(path),
+                save_file: save,
+            });
+        }
+
+        Ok((app, Task::none()))
     }
 }
 
@@ -270,11 +319,16 @@ pub enum Message {
     Notif(String),
     SaveSave(SaveSaveMsg),
     SavedSave(PathBuf),
+    MainStory(MainStoryMsg),
 }
 
-pub fn run() -> iced::Result {
+pub fn run(filepath: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     let application = iced::application("BCSFE", ApplicationState::update, ApplicationState::view)
         .theme(|s| s.theme.clone());
 
-    application.run_with(ApplicationState::new)
+    let app = ApplicationState::new(filepath)?;
+
+    application.run_with(|| app)?;
+
+    Ok(())
 }
