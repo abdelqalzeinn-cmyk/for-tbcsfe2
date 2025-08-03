@@ -4,7 +4,11 @@ use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::{
     game::main_story::StoryChapterType,
-    ui::{app::Message, editview::EditView},
+    ui::{
+        app::Message,
+        editview::EditView,
+        localization::{LocaleManager, Localizable},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -50,7 +54,7 @@ impl Chapters {
     const ALL_GROUPED: [[Chapters; 3]; 3] = [
         [Self::Eoc1, Self::Eoc2, Self::Eoc3],
         [Self::Itf1, Self::Itf2, Self::Itf2],
-        [Self::Itf3, Self::Itf3, Self::Itf3],
+        [Self::Cotc1, Self::Cotc2, Self::Cotc3],
     ];
 }
 
@@ -60,15 +64,15 @@ impl Display for Chapters {
             f,
             "{}",
             match self {
-                Chapters::Eoc1 => "Empire of Cats 1",
-                Chapters::Eoc2 => "Empire of Cats 2",
-                Chapters::Eoc3 => "Empire of Cats 3",
-                Chapters::Itf1 => "Into the Future 1",
-                Chapters::Itf2 => "Into the Future 2",
-                Chapters::Itf3 => "Into the Future 3",
-                Chapters::Cotc1 => "Cats of the Cosmos 1",
-                Chapters::Cotc2 => "Cats of the Cosmos 2",
-                Chapters::Cotc3 => "Cats of the Cosmos 3",
+                Chapters::Eoc1 => "chapter_1",
+                Chapters::Eoc2 => "chapter_2",
+                Chapters::Eoc3 => "chapter_3",
+                Chapters::Itf1 => "chapter_4",
+                Chapters::Itf2 => "chapter_5",
+                Chapters::Itf3 => "chapter_6",
+                Chapters::Cotc1 => "chapter_7",
+                Chapters::Cotc2 => "chapter_8",
+                Chapters::Cotc3 => "chapter_9",
             }
         )
     }
@@ -91,16 +95,17 @@ pub enum MainStoryMsg {
 impl EditView for MainStory {
     type Message = MainStoryMsg;
     fn init(&mut self, _save_file: &crate::save::SaveFile) {}
-    fn view(&self) -> iced::Element<'_, super::app::Message> {
+    fn view(&self, locale_manager: &LocaleManager) -> iced::Element<'_, super::app::Message> {
         let mut items = Vec::new();
         for (i, chaps) in Chapters::ALL_GROUPED.into_iter().enumerate() {
             let mut row_items = Vec::new();
             for (j, chap) in chaps.into_iter().enumerate() {
                 let index = i * 3 + j;
                 let selected = self.selected_chapters[index];
-                let checkbox = iced::widget::checkbox(chap, selected).on_toggle(move |tog| {
-                    Message::MainStory(MainStoryMsg::SelectChapter(index, tog))
-                });
+                let checkbox = iced::widget::checkbox(chap.localize(locale_manager), selected)
+                    .on_toggle(move |tog| {
+                        Message::MainStory(MainStoryMsg::SelectChapter(index, tog))
+                    });
                 row_items.push(checkbox.width(Length::Fill).into())
             }
 
@@ -109,37 +114,45 @@ impl EditView for MainStory {
 
         let row = iced::widget::row(items).width(Length::Fill).into();
 
-        let toggle_all = iced::widget::button("Toggle Select All")
-            .on_press(Message::MainStory(MainStoryMsg::ToggleAll))
-            .into();
+        let toggle_all = iced::widget::button(iced::widget::text(
+            "toggle-select-all".localize(locale_manager),
+        ))
+        .on_press(Message::MainStory(MainStoryMsg::ToggleAll))
+        .into();
 
         let select_pannel = iced::widget::column([row, toggle_all]).spacing(10).into();
 
-        let clear_chapters = iced::widget::button("Clear all selected chapters")
-            .on_press_maybe(
-                if self.selected_chapters.iter().all(|s| !*s)
-                    || self.clear_count_chapters.parse::<usize>().is_err()
-                {
-                    None
-                } else {
-                    Some(Message::MainStory(MainStoryMsg::ClearChapters))
-                },
-            )
-            .into();
+        let clear_chapters = iced::widget::button(iced::widget::text(
+            "clear-all-selected-chapters".localize(locale_manager),
+        ))
+        .on_press_maybe(
+            if self.selected_chapters.iter().all(|s| !*s)
+                || self.clear_count_chapters.parse::<usize>().is_err()
+            {
+                None
+            } else {
+                Some(Message::MainStory(MainStoryMsg::ClearChapters))
+            },
+        )
+        .into();
 
-        let clear_count_box = iced::widget::text_input("Clear Count", &self.clear_count_chapters)
-            .on_input(|inp: String| Message::MainStory(MainStoryMsg::EditClearCountChapters(inp)))
-            .into();
+        let clear_count_box = iced::widget::text_input(
+            &"clear-count".localize(locale_manager),
+            &self.clear_count_chapters,
+        )
+        .on_input(|inp: String| Message::MainStory(MainStoryMsg::EditClearCountChapters(inp)))
+        .into();
 
         let clear_chapters_pannel = iced::widget::container(
             iced::widget::row([
                 clear_chapters,
-                iced::widget::text("Clear Count:")
+                iced::widget::text("clear-count".localize(locale_manager))
                     .align_y(Vertical::Center)
-                    .height(32)
+                    .height(Length::Fill)
                     .into(),
                 clear_count_box,
             ])
+            .height(Length::Shrink)
             .spacing(10),
         )
         .padding(10)

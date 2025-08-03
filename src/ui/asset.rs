@@ -17,12 +17,16 @@ impl AssetManager {
                 .map_err(|e| {
                     std::io::Error::other(format!("failed to get path of executable, {e}"))
                 })?
+                .parent()
+                .ok_or(std::io::Error::other(
+                    "failed to get parent path of executable",
+                ))?
                 .join("assets")
         };
 
         if !std::fs::exists(&path)? {
             return Err(std::io::Error::other(format!(
-                "failed to find assets path: {}",
+                "assets path: {} does not exist",
                 path.to_string_lossy()
             )));
         }

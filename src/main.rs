@@ -10,14 +10,27 @@ pub mod stream;
 #[cfg(feature = "gui")]
 pub mod ui;
 
-#[cfg(feature = "gui")]
+#[cfg(feature = "wasm")]
 fn main() {
-    let mut args = std::env::args();
-    let filepath = args.nth(1);
-    if let Err(e) = ui::app::run(filepath.map(std::path::PathBuf::from)) {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    if let Err(e) = ui::app::run_wasm() {
         eprint!("{e}");
         std::process::exit(1);
     }
 }
-#[cfg(not(feature = "gui"))]
-fn main() {}
+
+#[cfg(feature = "gui")]
+#[cfg(not(feature = "wasm"))]
+fn main() {
+    let mut args = std::env::args();
+    let filepath = args.nth(1);
+    let asset_path = args.next();
+
+    if let Err(e) = ui::app::run(
+        filepath.map(std::path::PathBuf::from),
+        asset_path.map(std::path::PathBuf::from).as_deref(),
+    ) {
+        eprint!("{e}");
+        std::process::exit(1);
+    }
+}

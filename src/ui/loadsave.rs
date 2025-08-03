@@ -7,7 +7,13 @@ use iced::{
 };
 
 use crate::{
-    country_code::CountryCode, network::transfers::from_codes, save::SaveFile, ui::app::Message,
+    country_code::CountryCode,
+    network::transfers::from_codes,
+    save::SaveFile,
+    ui::{
+        app::Message,
+        localization::{LocaleManager, Localizable},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -15,8 +21,9 @@ pub enum LoadSaveMsg {
     SelectPath,
     FromCodes,
     LoadPath,
+    LoadData,
     OnSaveInput(String),
-    SelectedPath(Option<PathBuf>),
+    SelectedData(Option<Vec<u8>>),
     LoadedCodes(crate::network::transfers::FromCodesResponse),
     OnTransferInput(String),
     OnConfirmationInput(String),
@@ -29,6 +36,7 @@ impl LoadedSaveFile {
         let item: Element<Message> = match &self.source {
             SaveSource::Path(path) => iced::widget::text(path.to_string_lossy()).into(),
             SaveSource::TransferCodes => iced::widget::text("transfer codes!!!").into(),
+            SaveSource::Data => iced::widget::text("data").into(),
         };
 
         iced::widget::row([text.into(), item]).into()
@@ -38,6 +46,7 @@ impl LoadedSaveFile {
 #[derive(Debug, Clone)]
 pub enum SaveSource {
     Path(PathBuf),
+    Data,
     TransferCodes,
 }
 
@@ -53,19 +62,14 @@ pub struct LoadedSaveFile {
     pub save_file: SaveFile,
 }
 
-pub async fn select_save() -> Option<PathBuf> {
-    Some(
-        rfd::AsyncFileDialog::new()
-            .pick_file()
-            .await?
-            .path()
-            .to_path_buf(),
-    )
+pub async fn select_save() -> Option<Vec<u8>> {
+    Some(rfd::AsyncFileDialog::new().pick_file().await?.read().await)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LoadSave {
     pub save_path: String,
+    pub save_data: Option<Vec<u8>>,
     pub transfer_code: String,
     pub confirmation_code: String,
     pub selected_cc: Option<CountryCode>,
@@ -75,18 +79,24 @@ impl LoadSave {
     pub fn update(&mut self, message: LoadSaveMsg) -> Task<Message> {
         match message {
             LoadSaveMsg::SelectPath => {
-                return Task::perform(select_save(), |p| {
-                    Message::LoadSave(LoadSaveMsg::SelectedPath(p))
+                return Task::perform(select_save(), |d| {
+                    Message::LoadSave(LoadSaveMsg::SelectedData(d))
                 });
             }
             LoadSaveMsg::LoadPath => match self.load_save_from_path() {
                 Ok(s) => return Task::done(Message::LoadedSave(Box::new(s))),
                 Err(e) => return Task::done(Message::Error(e.to_string())),
             },
+            LoadSaveMsg::LoadData => match self.load_save_from_data() {
+                Ok(s) => return Task::done(Message::LoadedSave(Box::new(s))),
+                Err(e) => return Task::done(Message::Error(e.to_string())),
+            },
             LoadSaveMsg::OnSaveInput(p) => self.save_path = p,
-            LoadSaveMsg::SelectedPath(path_buf) => {
-                if let Some(path) = path_buf {
-                    self.save_path = path.to_string_lossy().to_string()
+            LoadSaveMsg::SelectedData(data) => {
+                if let Some(data) = data {
+                    self.save_data = Some(data);
+
+                    return Task::done(Message::LoadSave(LoadSaveMsg::LoadData));
                 }
             }
             LoadSaveMsg::FromCodes => {
@@ -134,44 +144,59 @@ impl LoadSave {
             save_file,
         })
     }
-    pub fn view(&self) -> Element<'_, Message> {
-        let save_path_layout = self.view_save_path_layout();
-        let transfer_code_layout = self.view_transfer_code_layout();
+    fn load_save_from_data(&self) -> Result<LoadedSaveFile, Box<dyn std::error::Error>> {
+        let save_file = SaveFile::load_detect_cc(
+            self.save_data
+                .as_ref()
+                .ok_or(std::io::Error::other("no save data"))?,
+        )?;
+        Ok(LoadedSaveFile {
+            source: SaveSource::Data,
+            save_file,
+        })
+    }
+    pub fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+        let save_path_layout = self.view_save_path_layout(locale_manager);
+        let transfer_code_layout = self.view_transfer_code_layout(locale_manager);
         iced::widget::container(
             iced::widget::column([save_path_layout, transfer_code_layout]).spacing(10),
         )
         .into()
     }
 
-    fn view_transfer_code_layout(&self) -> Element<'_, Message> {
+    fn view_transfer_code_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let transfer_code_layout = iced::widget::row([
-            iced::widget::text("Transfer Code:")
+            iced::widget::text("transfer-code".localize(locale_manager))
                 .align_y(Vertical::Center)
-                .height(Length::Fixed(30.0))
+                .height(Length::Fill)
                 .into(),
-            iced::widget::text_input("Transfer Code", &self.transfer_code)
-                .size(15)
-                .line_height(LineHeight::Relative(1.5))
-                .on_input(|t| Message::LoadSave(LoadSaveMsg::OnTransferInput(t)))
-                .into(),
-            iced::widget::text("Confirmation Code:")
+            iced::widget::text_input(
+                &"transfer-code".localize(locale_manager),
+                &self.transfer_code,
+            )
+            .line_height(LineHeight::Relative(1.5))
+            .on_input(|t| Message::LoadSave(LoadSaveMsg::OnTransferInput(t)))
+            .into(),
+            iced::widget::text("confirmation-code".localize(locale_manager))
                 .align_y(Vertical::Center)
-                .height(Length::Fixed(30.0))
+                .height(Length::Fill)
                 .into(),
-            iced::widget::text_input("Confirmation Code", &self.confirmation_code)
-                .size(15)
-                .line_height(LineHeight::Relative(1.5))
-                .on_input(|c| Message::LoadSave(LoadSaveMsg::OnConfirmationInput(c)))
-                .into(),
-            iced::widget::text("Country Code:")
+            iced::widget::text_input(
+                &"confirmation-code".localize(locale_manager),
+                &self.confirmation_code,
+            )
+            .line_height(LineHeight::Relative(1.5))
+            .on_input(|c| Message::LoadSave(LoadSaveMsg::OnConfirmationInput(c)))
+            .into(),
+            iced::widget::text("country-code".localize(locale_manager))
                 .align_y(Vertical::Center)
-                .height(Length::Fixed(30.0))
+                .height(Length::Fill)
                 .into(),
             iced::widget::pick_list(CountryCode::ALL, self.selected_cc, |c| {
                 Message::LoadSave(LoadSaveMsg::SelectCC(c))
             })
             .into(),
-            iced::widget::button("Load")
+            iced::widget::button(iced::widget::text("load".localize(locale_manager)))
                 .on_press_maybe(
                     if self.transfer_code.is_empty()
                         || self.confirmation_code.is_empty()
@@ -184,6 +209,7 @@ impl LoadSave {
                 )
                 .into(),
         ])
+        .height(Length::Shrink)
         .spacing(10);
 
         iced::widget::container(transfer_code_layout)
@@ -192,24 +218,23 @@ impl LoadSave {
             .into()
     }
 
-    fn view_save_path_layout(&self) -> Element<'_, Message> {
+    fn view_save_path_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let select_save_layout = iced::widget::row([
-            iced::widget::text("Save Path:")
+            iced::widget::text("save-path".localize(locale_manager))
                 .align_y(Vertical::Center)
-                .height(Length::Fixed(30.0))
+                .height(Length::Fill)
                 .into(),
-            iced::widget::button("Select Path")
+            iced::widget::button(iced::widget::text("open-save".localize(locale_manager)))
                 .on_press(Message::LoadSave(LoadSaveMsg::SelectPath))
                 .into(),
             iced::widget::container(
-                iced::widget::text_input("Save Path", &self.save_path)
-                    .size(15)
+                iced::widget::text_input(&"save-path".localize(locale_manager), &self.save_path)
                     .line_height(LineHeight::Relative(1.5))
                     .on_input(|p| Message::LoadSave(LoadSaveMsg::OnSaveInput(p))),
             )
             .align_y(Vertical::Center)
             .into(),
-            iced::widget::button("Load")
+            iced::widget::button(iced::widget::text("load".localize(locale_manager)))
                 .on_press_maybe(match std::fs::exists(&self.save_path) {
                     Ok(exists) => match exists {
                         true => Some(Message::LoadSave(LoadSaveMsg::LoadPath)),
@@ -219,6 +244,7 @@ impl LoadSave {
                 })
                 .into(),
         ])
+        .height(Length::Shrink)
         .spacing(10);
         let save_path_layout: Element<Message> = iced::widget::container(select_save_layout)
             .padding(10)

@@ -2,14 +2,20 @@ use std::{fmt::Display, num::ParseIntError};
 
 use iced::{Element, Length, Task};
 
-use crate::{save::SaveFile, ui::app::Message};
+use crate::{
+    save::SaveFile,
+    ui::{
+        app::Message,
+        localization::{LocaleManager, Localizable},
+    },
+};
 
 pub trait EditView {
     type Message;
 
     fn init(&mut self, save_file: &SaveFile);
 
-    fn view(&self) -> Element<'_, Message>;
+    fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message>;
 
     fn update(&mut self, message: Self::Message, save_file: &mut SaveFile) -> Task<Message>;
 }
@@ -93,17 +99,18 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
         self.current_value = T::get_save_value(save_file).to_string();
     }
 
-    fn view(&self) -> Element<'_, Message> {
+    fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let input = iced::widget::text_input(&T::feature().to_string(), &self.current_value)
             .on_submit(Message::BasicItem(BasicItemMessage::Submit))
             .on_input(|s| Message::BasicItem(BasicItemMessage::TextInput(s)))
             .width(Length::FillPortion(2))
             .into();
 
-        let apply_button = iced::widget::button("Apply")
-            .on_press(Message::BasicItem(BasicItemMessage::Submit))
-            .width(Length::FillPortion(1))
-            .into();
+        let apply_button =
+            iced::widget::button(iced::widget::text("apply".localize(locale_manager)))
+                .on_press(Message::BasicItem(BasicItemMessage::Submit))
+                .width(Length::FillPortion(1))
+                .into();
 
         let hoz_space = iced::widget::horizontal_space()
             .width(Length::FillPortion(3))

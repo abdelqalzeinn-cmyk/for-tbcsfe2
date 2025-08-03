@@ -39,12 +39,12 @@ pub struct ReceptionPayload {
 }
 
 impl ReceptionPayload {
-    pub fn new(client_info: ClientInfo, confirmation_code: String) -> Self {
-        Self {
+    pub fn new(client_info: ClientInfo, confirmation_code: String) -> Result<Self, std::io::Error> {
+        Ok(Self {
             client_info,
-            nonce: gen_nonce(),
+            nonce: gen_nonce()?,
             pin: confirmation_code,
-        }
+        })
     }
 }
 
@@ -54,9 +54,11 @@ impl Default for ClientInfo {
     }
 }
 
-pub fn gen_nonce() -> String {
-    let nonce_val: u128 = rand::random();
-    format!("{nonce_val:x}")
+pub fn gen_nonce() -> Result<String, std::io::Error> {
+    let mut nonce_bytes: [u8; 16] = [0; 16];
+    getrandom::fill(&mut nonce_bytes).map_err(|e| std::io::Error::other(e.to_string()))?;
+    let nonce_val: u128 = u128::from_ne_bytes(nonce_bytes);
+    Ok(format!("{nonce_val:x}"))
 }
 
 impl ClientInfo {
@@ -128,6 +130,8 @@ pub enum FromCodesError {
     InvalidCodes,
     #[error("failed to fetch result body: {0}")]
     Body(reqwest::Error),
+    #[error("failed to generate nonce: {0}")]
+    Random(std::io::Error),
 }
 
 pub fn new_client() -> Result<reqwest::Client, reqwest::Error> {
@@ -157,7 +161,8 @@ pub async fn from_codes(
         .with_device_maybe(device)
         .with_os_maybe(os);
 
-    let payload = ReceptionPayload::new(client_info, confirmation_code);
+    let payload =
+        ReceptionPayload::new(client_info, confirmation_code).map_err(FromCodesError::Random)?;
 
     let payload_str = serde_json::to_string(&payload).map_err(FromCodesError::SerdeJson)?;
 

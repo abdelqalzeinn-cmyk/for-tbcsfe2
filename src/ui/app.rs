@@ -7,7 +7,7 @@ use std::{
 use iced::{
     Element, Length, Pixels, Task, Theme,
     alignment::{Horizontal, Vertical},
-    widget::{button::Catalog, column, container, container::bordered_box, row},
+    widget::{button::Catalog, column, container::bordered_box, row},
 };
 use unic_langid::LanguageIdentifier;
 
@@ -89,11 +89,11 @@ impl UIOption {
         ]
     }
 
-    pub fn view(&self) -> Option<Element<'_, Message>> {
+    pub fn view(&self, locale_manager: &LocaleManager) -> Option<Element<'_, Message>> {
         macro_rules! view {
             [$($var:ident),+] => {
                 match self {
-                    $(UIOption::$var(view) => view.view(),)+
+                    $(UIOption::$var(view) => view.view(locale_manager),)+
                 }
             };
         }
@@ -207,7 +207,7 @@ impl ApplicationState {
         title_row.push(title);
 
         if let Some(ref save_file) = self.save_file {
-            let save_info: Element<Message> = container(save_file.view(&self.theme))
+            let save_info: Element<Message> = iced::widget::container(save_file.view(&self.theme))
                 .style(bordered_box)
                 .align_x(Horizontal::Right)
                 .align_y(Vertical::Center)
@@ -256,13 +256,13 @@ impl ApplicationState {
                 .size(20)
                 .color(self.theme.palette().primary)
                 .into();
-            let selected_view = selected.view();
+            let selected_view = selected.view(&self.locale_manager);
             let mut col = Vec::new();
             col.push(heading);
             if let Some(view) = selected_view {
                 col.push(view);
             }
-            let second_pannel: Element<Message> = container(column(col).spacing(10))
+            let second_pannel: Element<Message> = iced::widget::container(column(col).spacing(10))
                 .style(bordered_box)
                 .width(Length::FillPortion(8))
                 .height(Length::Fill)
@@ -272,7 +272,7 @@ impl ApplicationState {
             pannel2.push(second_pannel);
         }
 
-        container(
+        iced::widget::container(
             column([
                 column(notif_row).into(),
                 row(pannel2)
@@ -288,6 +288,7 @@ impl ApplicationState {
 
     pub fn new(
         filepath: Option<PathBuf>,
+        locale_manager: LocaleManager,
     ) -> Result<(Self, Task<Message>), Box<dyn std::error::Error>> {
         let mut app = Self {
             save_file: None,
@@ -295,12 +296,7 @@ impl ApplicationState {
             current_error: None,
             current_notif: None,
             selected_screen: Some(UIOption::LoadSave(LoadSave::default())),
-            locale_manager: LocaleManager::new(
-                LanguageIdentifier::from_str("en").unwrap(),
-                &AssetManager::new_from_base_path(Path::new("/home/henry/repos/bcsfe_rs/assets/"))
-                    .unwrap(),
-            )
-            .unwrap(),
+            locale_manager,
         };
 
         if let Some(path) = filepath {
@@ -329,13 +325,42 @@ pub enum Message {
     MainStory(MainStoryMsg),
 }
 
-pub fn run(filepath: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
-    let application = iced::application("BCSFE", ApplicationState::update, ApplicationState::view)
-        .theme(|s| s.theme.clone());
+pub fn run_wasm() -> Result<(), Box<dyn std::error::Error>> {
+    let lang = LanguageIdentifier::from_str("en")?;
+    let application = iced::application(
+        move || ApplicationState::new(None, LocaleManager::new_wasm(lang.clone())).unwrap(),
+        ApplicationState::update,
+        ApplicationState::view,
+    )
+    .theme(|s| s.theme.clone())
+    .title(|a: &ApplicationState| a.locale_manager.localize("title"));
 
-    let app = ApplicationState::new(filepath)?;
+    application.run()?;
 
-    application.run_with(|| app)?;
+    Ok(())
+}
+
+pub fn run(
+    filepath: Option<PathBuf>,
+    assets_path: Option<&Path>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let lang = LanguageIdentifier::from_str("en")?;
+    let asset_manager = AssetManager::new(assets_path)?;
+    let application = iced::application(
+        move || {
+            ApplicationState::new(
+                filepath.clone(),
+                LocaleManager::new(lang.clone(), &asset_manager).unwrap(),
+            )
+            .unwrap()
+        },
+        ApplicationState::update,
+        ApplicationState::view,
+    )
+    .theme(|s| s.theme.clone())
+    .title(|a: &ApplicationState| a.locale_manager.localize("title"));
+
+    application.run()?;
 
     Ok(())
 }
