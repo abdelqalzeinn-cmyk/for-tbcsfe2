@@ -34,3 +34,6 @@ fn main() {
         std::process::exit(1);
     }
 }
+
+#[cfg(not(feature = "gui"))]
+fn main() {}
