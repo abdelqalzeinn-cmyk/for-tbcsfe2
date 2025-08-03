@@ -1,8 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use iced::{
     Element, Length, Task, Theme,
-    alignment::Vertical,
+    alignment::{Horizontal, Vertical},
     widget::{container::bordered_box, text::LineHeight},
 };
 
@@ -31,15 +34,31 @@ pub enum LoadSaveMsg {
 }
 
 impl LoadedSaveFile {
-    pub fn view(&self, _theme: &Theme) -> Element<'_, Message> {
-        let text = iced::widget::text("Save File: ");
-        let item: Element<Message> = match &self.source {
-            SaveSource::Path(path) => iced::widget::text(path.to_string_lossy()).into(),
-            SaveSource::TransferCodes => iced::widget::text("transfer codes!!!").into(),
-            SaveSource::Data => iced::widget::text("data").into(),
-        };
+    pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
+        let text = "loaded-save-file".localize(locale_manager);
+        let first_text = iced::widget::text(text);
 
-        iced::widget::row([text.into(), item]).into()
+        let inquiry_code = iced::widget::text(
+            self.save_file
+                .save
+                .get_inquiry_code_with_default("no-inquiry-code".localize(locale_manager)),
+        );
+
+        let game_version = iced::widget::text(self.save_file.gvcc.gv.to_string());
+
+        let country_code =
+            iced::widget::text(LocalizedCC::from_cc(self.save_file.gvcc.cc, locale_manager).1);
+
+        iced::widget::row([
+            first_text.into(),
+            inquiry_code.color(theme.palette().primary).into(),
+            iced::widget::text("loaded-save-file-cc-splitter".localize(locale_manager)).into(),
+            country_code.color(theme.palette().primary).into(),
+            iced::widget::text("loaded-save-file-gv-splitter".localize(locale_manager)).into(),
+            game_version.color(theme.palette().primary).into(),
+        ])
+        .spacing(5)
+        .into()
     }
 }
 
@@ -66,13 +85,54 @@ pub async fn select_save() -> Option<Vec<u8>> {
     Some(rfd::AsyncFileDialog::new().pick_file().await?.read().await)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadSave {
     pub save_path: String,
     pub save_data: Option<Vec<u8>>,
     pub transfer_code: String,
     pub confirmation_code: String,
     pub selected_cc: Option<CountryCode>,
+}
+
+impl Default for LoadSave {
+    fn default() -> Self {
+        Self {
+            save_path: String::default(),
+            save_data: None,
+            transfer_code: String::default(),
+            confirmation_code: String::default(),
+            selected_cc: Some(CountryCode::En),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LocalizedCC(CountryCode, String);
+
+impl PartialEq for LocalizedCC {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl Display for LocalizedCC {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.1)
+    }
+}
+
+impl LocalizedCC {
+    fn from_cc(cc: CountryCode, locale_manager: &LocaleManager) -> Self {
+        Self(cc, format!("cc-{cc}").localize(locale_manager))
+    }
+    fn all(locale_manager: &LocaleManager) -> [LocalizedCC; 4] {
+        [
+            Self::from_cc(CountryCode::En, locale_manager),
+            Self::from_cc(CountryCode::Jp, locale_manager),
+            Self::from_cc(CountryCode::Kr, locale_manager),
+            Self::from_cc(CountryCode::Tw, locale_manager),
+        ]
+    }
 }
 
 impl LoadSave {
@@ -155,16 +215,36 @@ impl LoadSave {
             save_file,
         })
     }
-    pub fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
-        let save_path_layout = self.view_save_path_layout(locale_manager);
-        let transfer_code_layout = self.view_transfer_code_layout(locale_manager);
-        iced::widget::container(
-            iced::widget::column([save_path_layout, transfer_code_layout]).spacing(10),
+    pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
+        let transfer_code_layout = self.view_transfer_code_layout(theme, locale_manager);
+        let open_save_btn = iced::widget::container(
+            iced::widget::button(
+                iced::widget::text("load-save-system".localize(locale_manager))
+                    .width(Length::Fill)
+                    .align_x(Horizontal::Center),
+            )
+            .width(Length::Fill)
+            .on_press(Message::LoadSave(LoadSaveMsg::SelectPath)),
         )
-        .into()
+        .width(Length::Fill)
+        .padding(10)
+        .style(bordered_box)
+        .into();
+        let mut cols = Vec::new();
+        cols.push(open_save_btn);
+
+        #[cfg(not(feature = "wasm"))]
+        cols.push(self.view_save_path_layout(theme, locale_manager));
+
+        cols.push(transfer_code_layout);
+        iced::widget::container(iced::widget::column(cols).spacing(10)).into()
     }
 
-    fn view_transfer_code_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+    fn view_transfer_code_layout(
+        &self,
+        theme: &Theme,
+        locale_manager: &LocaleManager,
+    ) -> Element<'_, Message> {
         let transfer_code_layout = iced::widget::row([
             iced::widget::text("transfer-code".localize(locale_manager))
                 .align_y(Vertical::Center)
@@ -192,9 +272,12 @@ impl LoadSave {
                 .align_y(Vertical::Center)
                 .height(Length::Fill)
                 .into(),
-            iced::widget::pick_list(CountryCode::ALL, self.selected_cc, |c| {
-                Message::LoadSave(LoadSaveMsg::SelectCC(c))
-            })
+            iced::widget::pick_list(
+                LocalizedCC::all(locale_manager),
+                self.selected_cc
+                    .map(|v| LocalizedCC::from_cc(v, locale_manager)),
+                |c| Message::LoadSave(LoadSaveMsg::SelectCC(c.0)),
+            )
             .into(),
             iced::widget::button(iced::widget::text("load".localize(locale_manager)))
                 .on_press_maybe(
@@ -212,20 +295,30 @@ impl LoadSave {
         .height(Length::Shrink)
         .spacing(10);
 
-        iced::widget::container(transfer_code_layout)
-            .padding(10)
-            .style(bordered_box)
-            .into()
+        iced::widget::container(
+            iced::widget::column([
+                iced::widget::text("load-save-from-codes".localize(locale_manager))
+                    .color(theme.palette().primary)
+                    .into(),
+                transfer_code_layout.into(),
+            ])
+            .spacing(10),
+        )
+        .padding(10)
+        .style(bordered_box)
+        .into()
     }
 
-    fn view_save_path_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+    #[cfg(not(feature = "wasm"))]
+    fn view_save_path_layout(
+        &self,
+        theme: &Theme,
+        locale_manager: &LocaleManager,
+    ) -> Element<'_, Message> {
         let select_save_layout = iced::widget::row([
             iced::widget::text("save-path".localize(locale_manager))
                 .align_y(Vertical::Center)
                 .height(Length::Fill)
-                .into(),
-            iced::widget::button(iced::widget::text("open-save".localize(locale_manager)))
-                .on_press(Message::LoadSave(LoadSaveMsg::SelectPath))
                 .into(),
             iced::widget::container(
                 iced::widget::text_input(&"save-path".localize(locale_manager), &self.save_path)
@@ -246,10 +339,18 @@ impl LoadSave {
         ])
         .height(Length::Shrink)
         .spacing(10);
-        let save_path_layout: Element<Message> = iced::widget::container(select_save_layout)
-            .padding(10)
-            .style(bordered_box)
-            .into();
+        let save_path_layout: Element<Message> = iced::widget::container(
+            iced::widget::column([
+                iced::widget::text("load-save-from-path".localize(locale_manager))
+                    .color(theme.palette().primary)
+                    .into(),
+                select_save_layout.into(),
+            ])
+            .spacing(10),
+        )
+        .padding(10)
+        .style(bordered_box)
+        .into();
         save_path_layout
     }
 }

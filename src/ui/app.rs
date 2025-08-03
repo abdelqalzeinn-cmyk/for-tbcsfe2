@@ -89,11 +89,15 @@ impl UIOption {
         ]
     }
 
-    pub fn view(&self, locale_manager: &LocaleManager) -> Option<Element<'_, Message>> {
+    pub fn view(
+        &self,
+        theme: &Theme,
+        locale_manager: &LocaleManager,
+    ) -> Option<Element<'_, Message>> {
         macro_rules! view {
             [$($var:ident),+] => {
                 match self {
-                    $(UIOption::$var(view) => view.view(locale_manager),)+
+                    $(UIOption::$var(view) => view.view(theme, locale_manager),)+
                 }
             };
         }
@@ -108,10 +112,13 @@ impl UIOption {
         &mut self,
         msg: BasicItemMessage,
         save_file: &mut SaveFile,
+        locale_manager: &LocaleManager,
     ) -> Task<Message> {
         match self {
-            UIOption::Catfood(basic_item_view) => basic_item_view.update(msg, save_file),
-            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file),
+            UIOption::Catfood(basic_item_view) => {
+                basic_item_view.update(msg, save_file, locale_manager)
+            }
+            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file, locale_manager),
             _ => Task::none(),
         }
     }
@@ -159,7 +166,11 @@ impl ApplicationState {
                 if let Some(ref mut save_file) = self.save_file
                     && let Some(ref mut option) = self.selected_screen
                 {
-                    return option.update_basic_item(msg, &mut save_file.save_file);
+                    return option.update_basic_item(
+                        msg,
+                        &mut save_file.save_file,
+                        &self.locale_manager,
+                    );
                 }
             }
             Message::SaveSave(save_save_msg) => {
@@ -177,7 +188,7 @@ impl ApplicationState {
                 if let Some(UIOption::MainStory(ref mut selected)) = self.selected_screen
                     && let Some(ref mut save_file) = self.save_file
                 {
-                    return selected.update(msg, &mut save_file.save_file);
+                    return selected.update(msg, &mut save_file.save_file, &self.locale_manager);
                 }
             }
         };
@@ -188,7 +199,7 @@ impl ApplicationState {
         let mut notif_row: Vec<Element<Message>> = Vec::new();
         if let Some(ref error) = self.current_error {
             let errors =
-                iced::widget::text(error).color(self.theme.extended_palette().danger.strong.color);
+                iced::widget::text(error).color(self.theme.extended_palette().danger.base.color);
             notif_row.push(errors.into());
         }
         if let Some(ref notif) = self.current_notif {
@@ -207,12 +218,13 @@ impl ApplicationState {
         title_row.push(title);
 
         if let Some(ref save_file) = self.save_file {
-            let save_info: Element<Message> = iced::widget::container(save_file.view(&self.theme))
-                .style(bordered_box)
-                .align_x(Horizontal::Right)
-                .align_y(Vertical::Center)
-                .padding(10)
-                .into();
+            let save_info: Element<Message> =
+                iced::widget::container(save_file.view(&self.theme, &self.locale_manager))
+                    .style(bordered_box)
+                    .align_x(Horizontal::Right)
+                    .align_y(Vertical::Center)
+                    .padding(10)
+                    .into();
 
             title_row.push(save_info);
         }
@@ -228,7 +240,7 @@ impl ApplicationState {
                 .is_some_and(|s| s.base_matches(&opt));
             let mut text = iced::widget::text((&opt).localize(&self.locale_manager));
             if is_selected {
-                text = text.color(self.theme.extended_palette().success.strong.text);
+                text = text.color(self.theme.extended_palette().success.base.text);
             }
             let mut button = iced::widget::button(text)
                 .width(Length::FillPortion(2))
@@ -236,7 +248,7 @@ impl ApplicationState {
                     let mut s = t.style(&<Theme as iced::widget::button::Catalog>::default(), s);
 
                     if is_selected {
-                        s = s.with_background(t.extended_palette().success.strong.color)
+                        s = s.with_background(t.extended_palette().success.base.color)
                     }
 
                     s
@@ -256,7 +268,7 @@ impl ApplicationState {
                 .size(20)
                 .color(self.theme.palette().primary)
                 .into();
-            let selected_view = selected.view(&self.locale_manager);
+            let selected_view = selected.view(&self.theme, &self.locale_manager);
             let mut col = Vec::new();
             col.push(heading);
             if let Some(view) = selected_view {

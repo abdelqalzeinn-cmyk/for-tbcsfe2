@@ -1,5 +1,6 @@
 use std::{fmt::Display, num::ParseIntError};
 
+use fluent::FluentArgs;
 use iced::{Element, Length, Task};
 
 use crate::{
@@ -15,9 +16,14 @@ pub trait EditView {
 
     fn init(&mut self, save_file: &SaveFile);
 
-    fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message>;
+    fn view(&self, theme: &iced::Theme, locale_manager: &LocaleManager) -> Element<'_, Message>;
 
-    fn update(&mut self, message: Self::Message, save_file: &mut SaveFile) -> Task<Message>;
+    fn update(
+        &mut self,
+        message: Self::Message,
+        save_file: &mut SaveFile,
+        locale_manager: &LocaleManager,
+    ) -> Task<Message>;
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -72,6 +78,7 @@ pub trait BasicItem {
 pub enum BasicItemMessage {
     Submit,
     TextInput(String),
+    Max,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -99,7 +106,7 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
         self.current_value = T::get_save_value(save_file).to_string();
     }
 
-    fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+    fn view(&self, _theme: &iced::Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let input = iced::widget::text_input(&T::feature().to_string(), &self.current_value)
             .on_submit(Message::BasicItem(BasicItemMessage::Submit))
             .on_input(|s| Message::BasicItem(BasicItemMessage::TextInput(s)))
@@ -109,31 +116,47 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
         let apply_button =
             iced::widget::button(iced::widget::text("apply".localize(locale_manager)))
                 .on_press(Message::BasicItem(BasicItemMessage::Submit))
-                .width(Length::FillPortion(1))
+                .into();
+
+        let max_button =
+            iced::widget::button(iced::widget::text("set-max".localize(locale_manager)))
+                .on_press(Message::BasicItem(BasicItemMessage::Max))
                 .into();
 
         let hoz_space = iced::widget::horizontal_space()
             .width(Length::FillPortion(3))
             .into();
 
-        iced::widget::row([input, apply_button, hoz_space])
+        iced::widget::row([input, max_button, apply_button, hoz_space])
             .spacing(10)
             .into()
     }
 
-    fn update(&mut self, message: Self::Message, save_file: &mut SaveFile) -> Task<Message> {
+    fn update(
+        &mut self,
+        message: Self::Message,
+        save_file: &mut SaveFile,
+        locale_manager: &LocaleManager,
+    ) -> Task<Message> {
         match message {
             BasicItemMessage::Submit => {
                 let value = self.get_value(T::max_value(), T::min_value());
                 match value {
                     Ok(v) => {
                         T::set_save_value(save_file, v);
-                        return Task::done(Message::Notif(format!("set {} to: {v}", T::feature())));
+                        return Task::done(Message::Notif("set-x-to-x".localize_with_args(
+                            locale_manager,
+                            &FluentArgs::from_iter([
+                                ("feature", T::feature().to_string()),
+                                ("value", v.to_string()),
+                            ]),
+                        )));
                     }
                     Err(e) => return Task::done(Message::Error(e.to_string())),
                 }
             }
             BasicItemMessage::TextInput(s) => self.current_value = s,
+            BasicItemMessage::Max => self.current_value = T::max_value().to_string(),
         };
         Task::none()
     }

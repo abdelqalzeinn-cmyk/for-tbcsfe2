@@ -95,7 +95,11 @@ pub enum MainStoryMsg {
 impl EditView for MainStory {
     type Message = MainStoryMsg;
     fn init(&mut self, _save_file: &crate::save::SaveFile) {}
-    fn view(&self, locale_manager: &LocaleManager) -> iced::Element<'_, super::app::Message> {
+    fn view(
+        &self,
+        _theme: &iced::Theme,
+        locale_manager: &LocaleManager,
+    ) -> iced::Element<'_, super::app::Message> {
         let mut items = Vec::new();
         for (i, chaps) in Chapters::ALL_GROUPED.into_iter().enumerate() {
             let mut row_items = Vec::new();
@@ -169,6 +173,7 @@ impl EditView for MainStory {
         &mut self,
         message: Self::Message,
         save_file: &mut crate::save::SaveFile,
+        _locale_manager: &LocaleManager,
     ) -> iced::Task<super::app::Message> {
         match message {
             MainStoryMsg::SelectChapter(ind, enabled) => self.selected_chapters[ind] = enabled,

@@ -7,11 +7,14 @@ main-story = Main Story
 save-path = Save Path
 transfer-code = Transfer Code
 confirmation-code = Confirmation Code
-country-code = Country Code
+country-code = Version
 load = Load
 select-path = Select Path
-open-save = Open Save
+load-save-system = Select Save With System Dialog
 apply = Apply
+set-max = Set To Max Value
+
+set-x-to-x = Set { $feature } to { $value }
 
 chapter_1 = Empire of Cats 1
 chapter_2 = Empire of Cats 2
@@ -26,3 +29,17 @@ chapter_9 = Cats of the Cosmos 3
 clear-all-selected-chapters = Clear All Selected Chapters
 clear-count = Clear Count
 toggle-select-all = Toggle Select All
+
+loaded-save-file = Loaded Save File:
+no-inquiry-code = No Inquiry Code
+
+cc-en = English
+cc-jp = Japanese
+cc-kr = Korean
+cc-tw = Taiwanese
+
+loaded-save-file-cc-splitter = -
+loaded-save-file-gv-splitter = -
+
+load-save-from-path = Load Save From File Path
+load-save-from-codes = Resume Data Transfer

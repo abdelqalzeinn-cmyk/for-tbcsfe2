@@ -51,7 +51,11 @@ impl SaveSave {
         Task::none()
     }
 
-    pub fn view(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+    pub fn view(
+        &self,
+        _theme: &iced::Theme,
+        locale_manager: &LocaleManager,
+    ) -> Element<'_, Message> {
         let save_path_layout: Element<Message> = iced::widget::container(
             iced::widget::row([
                 iced::widget::text("save-path".localize(locale_manager))

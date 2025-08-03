@@ -626,6 +626,17 @@ pub struct Save {
     pub remaing_data: RemainingData,
 }
 
+impl Save {
+    pub fn get_inquiry_code(&self) -> Option<&str> {
+        Some(&self.gv_44.as_ref()?.inquiry_code.0)
+    }
+    pub fn get_inquiry_code_with_default(&self, default: String) -> String {
+        self.get_inquiry_code()
+            .map(|v| v.to_string())
+            .unwrap_or(default)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct RemainingData {
     pub data: Vec<u8>,
