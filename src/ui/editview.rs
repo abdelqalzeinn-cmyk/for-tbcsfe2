@@ -144,13 +144,14 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
                 match value {
                     Ok(v) => {
                         T::set_save_value(save_file, v);
-                        return Task::done(Message::Notif("set-x-to-x".localize_with_args(
-                            locale_manager,
-                            &FluentArgs::from_iter([
-                                ("feature", T::feature().to_string()),
-                                ("value", v.to_string()),
-                            ]),
-                        )));
+                        return {
+                            let mut args = FluentArgs::with_capacity(2);
+                            args.set("feature", T::feature().to_string());
+                            args.set("value", v);
+                            Task::done(Message::Notif(
+                                "set-x-to-x".localize_with_args(locale_manager, &args),
+                            ))
+                        };
                     }
                     Err(e) => return Task::done(Message::Error(e.to_string())),
                 }
