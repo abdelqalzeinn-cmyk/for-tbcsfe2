@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
 use iced::{
-    Element, Length, Task,
+    Alignment, Element, Length, Task,
     alignment::Vertical,
     widget::{container::bordered_box, text::LineHeight},
 };
 
 use crate::{
+    network::password::{TransferCodes, create_and_upload, register_new_account},
     save::SaveFile,
     ui::{
         app::Message,
@@ -21,6 +22,8 @@ pub enum SaveSaveMsg {
     SavePath,
     OnSaveInput(String),
     SelectedData(Option<PathBuf>),
+    UploadSave,
+    Uploaded(TransferCodes),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -47,6 +50,16 @@ impl SaveSave {
                     self.save_path = path.to_string_lossy().to_string();
                 }
             }
+            SaveSaveMsg::UploadSave => {
+                // TODO: avoid clone
+                return Task::perform(create_and_upload(save.clone()), |r| match r {
+                    Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes)),
+                    Err(e) => Message::Error(e.to_string()),
+                });
+            }
+            SaveSaveMsg::Uploaded(codes) => {
+                dbg!(codes);
+            }
         };
         Task::none()
     }
@@ -56,6 +69,31 @@ impl SaveSave {
         _theme: &iced::Theme,
         locale_manager: &LocaleManager,
     ) -> Element<'_, Message> {
+        let save_path_layout = self.view_save_path_layout(locale_manager);
+        let upload_save_layout = self.view_upload_save_layout(locale_manager);
+        iced::widget::container(
+            iced::widget::column([save_path_layout, upload_save_layout]).spacing(10),
+        )
+        .into()
+    }
+
+    fn view_upload_save_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
+        let save_upload_layout: Element<Message> = iced::widget::container(
+            iced::widget::button(
+                iced::widget::text("upload-save".localize(locale_manager))
+                    .align_x(Alignment::Center)
+                    .width(Length::Fill),
+            )
+            .on_press(Message::SaveSave(SaveSaveMsg::UploadSave))
+            .width(Length::Fill),
+        )
+        .padding(10)
+        .style(bordered_box)
+        .into();
+        save_upload_layout
+    }
+
+    fn view_save_path_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let save_path_layout: Element<Message> = iced::widget::container(
             iced::widget::row([
                 iced::widget::text("save-path".localize(locale_manager))
@@ -85,7 +123,7 @@ impl SaveSave {
         .padding(10)
         .style(bordered_box)
         .into();
-        iced::widget::container(iced::widget::column([save_path_layout])).into()
+        save_path_layout
     }
 
     pub fn init(&mut self, save_file: &LoadedSaveFile) {

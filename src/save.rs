@@ -635,6 +635,28 @@ impl Save {
             .map(|v| v.to_string())
             .unwrap_or(default)
     }
+
+    pub fn get_legend_tickets(&self) -> Option<i32> {
+        self.gv_100000.as_ref().map(|v| v.legend_tickets)
+    }
+    pub fn get_platinum_tickets(&self) -> Option<i32> {
+        self.gv_55.as_ref().map(|v| v.platinum_tickets)
+    }
+
+    pub fn get_play_time(&self) -> Option<i32> {
+        self.gv_44.as_ref().map(|v| v.play_time)
+    }
+
+    pub fn calculate_user_rank(&self) -> i32 {
+        let mut ur: i32 = 0;
+        for (unlocked, level) in self.unlocked_cats.0.iter().zip(self.cat_upgrades.0.iter()) {
+            if *unlocked != 0 {
+                ur += (level.base as i32) + (level.plus as i32) + 1;
+            }
+        }
+
+        ur
+    }
 }
 
 #[derive(Debug, Clone, Default)]

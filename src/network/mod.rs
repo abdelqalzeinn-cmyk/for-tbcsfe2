@@ -1,1 +1,14 @@
-pub mod transfers;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+pub mod password;
+pub mod signature;
+pub mod transfer;
+
+pub fn get_unix_timestamp() -> u64 {
+    let start = SystemTime::now();
+    let duration = start
+        .duration_since(UNIX_EPOCH)
+        .expect("time went forwards");
+
+    duration.as_secs()
+}

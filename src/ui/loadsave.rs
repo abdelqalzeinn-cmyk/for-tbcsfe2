@@ -11,7 +11,7 @@ use iced::{
 
 use crate::{
     country_code::CountryCode,
-    network::transfers::from_codes,
+    network::transfer::from_codes,
     save::SaveFile,
     ui::{
         app::Message,
@@ -27,7 +27,7 @@ pub enum LoadSaveMsg {
     LoadData,
     OnSaveInput(String),
     SelectedData(Option<Vec<u8>>),
-    LoadedCodes(crate::network::transfers::FromCodesResponse),
+    LoadedCodes(crate::network::transfer::FromCodesResponse),
     OnTransferInput(String),
     OnConfirmationInput(String),
     SelectCC(CountryCode),
