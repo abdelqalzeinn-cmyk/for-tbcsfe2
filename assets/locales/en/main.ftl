@@ -43,3 +43,11 @@ loaded-save-file-gv-splitter = -
 
 load-save-from-path = Load Save From File Path
 load-save-from-codes = Resume Data Transfer
+
+upload-start = Starting Data Transfer...
+upload-save = Start Data Transfer
+successfully-uploaded = Successfully Uploaded Save Data
+
+transfer-code-colon = Transfer Code:
+confirmation-code-colon = Confirmation Code:
+transfer-code-splitter = -

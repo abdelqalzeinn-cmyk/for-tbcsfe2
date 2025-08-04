@@ -11,7 +11,7 @@ use iced::{
 
 use crate::{
     country_code::CountryCode,
-    network::transfer::from_codes,
+    network::{password::TransferCodes, transfer::from_codes},
     save::SaveFile,
     ui::{
         app::Message,
@@ -49,7 +49,7 @@ impl LoadedSaveFile {
         let country_code =
             iced::widget::text(LocalizedCC::from_cc(self.save_file.gvcc.cc, locale_manager).1);
 
-        iced::widget::row([
+        let info_row = iced::widget::row([
             first_text.into(),
             inquiry_code.color(theme.palette().primary).into(),
             iced::widget::text("loaded-save-file-cc-splitter".localize(locale_manager)).into(),
@@ -58,7 +58,37 @@ impl LoadedSaveFile {
             game_version.color(theme.palette().primary).into(),
         ])
         .spacing(5)
-        .into()
+        .into();
+
+        let mut rows = vec![info_row];
+
+        if let Some(ref codes) = self.codes {
+            let codes_row = iced::widget::row([
+                iced::widget::row([
+                    iced::widget::text("transfer-code-colon".localize(locale_manager)).into(),
+                    iced::widget::text(&codes.transfer_code)
+                        .color(theme.palette().primary)
+                        .into(),
+                ])
+                .spacing(5)
+                .into(),
+                iced::widget::text("transfer-code-splitter".localize(locale_manager)).into(),
+                iced::widget::row([
+                    iced::widget::text("confirmation-code-colon".localize(locale_manager)).into(),
+                    iced::widget::text(&codes.confirmation_code)
+                        .color(theme.palette().primary)
+                        .into(),
+                ])
+                .spacing(5)
+                .into(),
+            ])
+            .spacing(10)
+            .into();
+
+            rows.push(codes_row)
+        }
+
+        iced::widget::column(rows).spacing(10).into()
     }
 }
 
@@ -79,6 +109,7 @@ impl Default for SaveSource {
 pub struct LoadedSaveFile {
     pub source: SaveSource,
     pub save_file: SaveFile,
+    pub codes: Option<TransferCodes>,
 }
 
 pub async fn select_save() -> Option<Vec<u8>> {
@@ -107,7 +138,7 @@ impl Default for LoadSave {
 }
 
 #[derive(Debug, Clone)]
-struct LocalizedCC(CountryCode, String);
+pub(crate) struct LocalizedCC(CountryCode, String);
 
 impl PartialEq for LocalizedCC {
     fn eq(&self, other: &Self) -> bool {
@@ -122,7 +153,7 @@ impl Display for LocalizedCC {
 }
 
 impl LocalizedCC {
-    fn from_cc(cc: CountryCode, locale_manager: &LocaleManager) -> Self {
+    pub(crate) fn from_cc(cc: CountryCode, locale_manager: &LocaleManager) -> Self {
         Self(cc, format!("cc-{cc}").localize(locale_manager))
     }
     fn all(locale_manager: &LocaleManager) -> [LocalizedCC; 4] {
@@ -178,12 +209,19 @@ impl LoadSave {
                 );
             }
             LoadSaveMsg::LoadedCodes(r) => {
-                let save_file = SaveFile::load_detect_cc(&r.save_data);
+                let save_file = SaveFile::load_detect_cc_no_zip(&r.save_data, r.account_info);
                 match save_file {
-                    Ok(s) => {
+                    Ok(mut s) => {
+                        if let Some(prt) = r.password_refresh_token {
+                            s.save.set_password_refresh_token(prt);
+                        }
                         return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
                             source: SaveSource::TransferCodes,
                             save_file: s,
+                            codes: Some(TransferCodes {
+                                transfer_code: self.transfer_code.clone(),
+                                confirmation_code: self.confirmation_code.clone(),
+                            }),
                         })));
                     }
                     Err(e) => return Task::done(Message::Error(e.to_string())),
@@ -202,17 +240,24 @@ impl LoadSave {
         Ok(LoadedSaveFile {
             source: SaveSource::Path(path),
             save_file,
+            codes: None,
         })
     }
     fn load_save_from_data(&self) -> Result<LoadedSaveFile, Box<dyn std::error::Error>> {
-        let save_file = SaveFile::load_detect_cc(
-            self.save_data
-                .as_ref()
-                .ok_or(std::io::Error::other("no save data"))?,
-        )?;
+        let save_data = self
+            .save_data
+            .as_ref()
+            .ok_or(std::io::Error::other("no save data"))?;
+        let is_zip = zip::ZipArchive::new(std::io::Cursor::new(save_data)).is_ok();
+        let save_file = if is_zip {
+            SaveFile::load_from_zip_data(save_data, None)?
+        } else {
+            SaveFile::load_detect_cc_no_zip(&save_data, None)?
+        };
         Ok(LoadedSaveFile {
             source: SaveSource::Data,
             save_file,
+            codes: None,
         })
     }
     pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {

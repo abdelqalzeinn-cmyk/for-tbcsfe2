@@ -1,4 +1,8 @@
-use std::{io::Cursor, path::Path};
+use std::{
+    fmt::Display,
+    io::{Cursor, Read, Write},
+    path::Path,
+};
 
 use crate::{
     blocks::{gv_47::GatyaSeed, gv_58::TOTAL_BATTLE_ITEMS, *},
@@ -13,6 +17,11 @@ use crate::{
     },
 };
 use bcsfe_derive::{Readable, Writable};
+use zip::{
+    HasZipMetadata,
+    result::ZipError,
+    write::{FileOptions, SimpleFileOptions},
+};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DateTimeDst {
@@ -245,14 +254,173 @@ impl Writable for UnlockPopups8 {
     }
 }
 
+#[derive(Debug)]
+pub enum AccountInfoError {
+    NoAuthToken,
+    NoPassword,
+    Io(std::io::Error),
+}
+
+impl Display for AccountInfoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AccountInfoError::NoAuthToken => "no auth token found".to_string(),
+                AccountInfoError::NoPassword => "no password found".to_string(),
+                AccountInfoError::Io(e) => format!("failed to read to string: {e}"),
+            }
+        )
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AccountInfo {
+    pub password: Option<String>,
+    pub auth_token: Option<String>,
+}
+
+impl AccountInfo {
+    pub fn new(password: Option<String>, auth_token: Option<String>) -> Self {
+        Self {
+            password,
+            auth_token,
+        }
+    }
+
+    pub fn read_from_string(data: &str) -> Result<Self, AccountInfoError> {
+        let (password, auth_token) = data.split_once("\n").ok_or(AccountInfoError::NoAuthToken)?;
+
+        let password = password.trim();
+        let auth_token = auth_token.trim();
+
+        Ok(Self {
+            password: if password.is_empty() {
+                None
+            } else {
+                Some(password.to_string())
+            },
+            auth_token: if auth_token.is_empty() {
+                None
+            } else {
+                Some(auth_token.to_string())
+            },
+        })
+    }
+
+    pub fn from_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, AccountInfoError> {
+        let mut str = "".to_string();
+        reader
+            .read_to_string(&mut str)
+            .map_err(AccountInfoError::Io)?;
+
+        Self::read_from_string(&str)
+    }
+
+    pub fn to_string(&self) -> String {
+        format!(
+            "{}\n{}",
+            self.password.as_ref().unwrap_or(&String::new()),
+            self.auth_token.as_ref().unwrap_or(&String::new())
+        )
+    }
+
+    pub fn write<W: std::io::Write>(&self, writer: &mut W) -> Result<(), AccountInfoError> {
+        writer
+            .write_all(self.to_string().as_bytes())
+            .map_err(AccountInfoError::Io)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SaveFile {
     pub save: Save,
     pub gvcc: GVCC,
+    pub account_info: Option<AccountInfo>,
+}
+
+#[derive(Debug)]
+pub enum SaveFileZipError {
+    ZipError(ZipError),
+    Io(std::io::Error),
+    AccountInfo(AccountInfoError),
+    Save(StreamError),
+}
+
+impl std::error::Error for SaveFileZipError {}
+
+impl Display for SaveFileZipError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SaveFileZipError::ZipError(zip_error) => format!("zip error: {zip_error}"),
+                SaveFileZipError::Io(error) => format!("io error: {error}"),
+                SaveFileZipError::AccountInfo(account_info_error) =>
+                    format!("account info error: {account_info_error}"),
+                SaveFileZipError::Save(stream_error) => format!("stream error: {stream_error}"),
+            }
+        )
+    }
 }
 
 impl SaveFile {
-    pub fn load_detect_cc(data: &[u8]) -> StreamResult<SaveFile> {
+    pub fn load_from_zip_file(
+        path: &Path,
+        cc: Option<CountryCode>,
+    ) -> Result<Self, SaveFileZipError> {
+        Self::load_from_zip_reader(
+            &mut std::fs::File::open(path).map_err(SaveFileZipError::Io)?,
+            cc,
+        )
+    }
+    pub fn load_from_zip_data(
+        data: &[u8],
+        cc: Option<CountryCode>,
+    ) -> Result<Self, SaveFileZipError> {
+        Self::load_from_zip_reader(&mut std::io::Cursor::new(data), cc)
+    }
+    pub fn load_from_zip_reader<R: std::io::Seek + std::io::Read>(
+        reader: &mut R,
+        cc: Option<CountryCode>,
+    ) -> Result<Self, SaveFileZipError> {
+        let mut zip_reader = zip::ZipArchive::new(reader).map_err(SaveFileZipError::ZipError)?;
+
+        let account_info = {
+            let mut account_info_z = zip_reader
+                .by_name("save_account.txt")
+                .map_err(SaveFileZipError::ZipError)?;
+
+            let account_info = AccountInfo::from_reader(&mut account_info_z)
+                .map_err(SaveFileZipError::AccountInfo)?;
+
+            account_info
+        };
+
+        let mut save_data_z = zip_reader
+            .by_name("SAVE_DATA")
+            .map_err(SaveFileZipError::ZipError)?;
+
+        let mut save_data =
+            Vec::with_capacity(save_data_z.get_metadata().uncompressed_size as usize);
+
+        save_data_z
+            .read_to_end(&mut save_data)
+            .map_err(SaveFileZipError::Io)?;
+
+        if let Some(cc) = cc {
+            Self::load_cc_no_zip(&save_data, cc, Some(account_info)).map_err(SaveFileZipError::Save)
+        } else {
+            Self::load_detect_cc_no_zip(&save_data, Some(account_info))
+                .map_err(SaveFileZipError::Save)
+        }
+    }
+    pub fn load_detect_cc_no_zip(
+        data: &[u8],
+        account_info: Option<AccountInfo>,
+    ) -> StreamResult<SaveFile> {
         let cc = detect_cc(data).ok_or(StreamError::new_str(
             "could not detect country code",
             u64::MAX,
@@ -260,15 +428,19 @@ impl SaveFile {
 
         let mut reader = Cursor::new(data);
 
-        SaveFile::read(&mut reader, cc.into())
+        SaveFile::read(&mut reader, (cc.into(), account_info))
     }
-    pub fn load_cc(data: &[u8], cc: CountryCode) -> StreamResult<SaveFile> {
+    pub fn load_cc_no_zip(
+        data: &[u8],
+        cc: CountryCode,
+        account_info: Option<AccountInfo>,
+    ) -> StreamResult<SaveFile> {
         let mut reader = Cursor::new(data);
 
-        SaveFile::read(&mut reader, cc)
+        SaveFile::read(&mut reader, (cc, account_info))
     }
 
-    pub fn write_with_hash(&self) -> StreamResult<Vec<u8>> {
+    pub fn write_with_hash_no_zip(&self) -> StreamResult<Vec<u8>> {
         let mut writer = Cursor::new(Vec::new());
         self.write_no_opts(&mut writer)?;
 
@@ -280,11 +452,54 @@ impl SaveFile {
         Ok(data)
     }
 
-    pub fn write_to_path(&self, path: &Path) -> StreamResult<()> {
+    pub fn write_to_zip_data(&self) -> Result<Vec<u8>, SaveFileZipError> {
+        let savedata = self
+            .write_with_hash_no_zip()
+            .map_err(SaveFileZipError::Save)?;
+
+        let inner = Cursor::new(Vec::new());
+
+        let mut writer = zip::ZipWriter::new(inner);
+
+        let opts: SimpleFileOptions = FileOptions::default();
+
+        writer
+            .start_file("SAVE_DATA", opts)
+            .map_err(SaveFileZipError::ZipError)?;
+        writer.write_all(&savedata).map_err(SaveFileZipError::Io)?;
+
+        writer
+            .start_file("save_account.txt", opts)
+            .map_err(SaveFileZipError::ZipError)?;
+
+        let data = if let Some(ref info) = self.account_info {
+            info.to_string()
+        } else {
+            AccountInfo::default().to_string()
+        };
+
+        writer
+            .write_all(data.as_bytes())
+            .map_err(SaveFileZipError::Io)?;
+
+        Ok(writer
+            .finish()
+            .map_err(SaveFileZipError::ZipError)?
+            .into_inner())
+    }
+
+    pub fn write_to_path(&self, path: &Path) -> Result<(), SaveFileZipError> {
+        let path = path.with_extension("zip");
+        let data = self.write_to_zip_data()?;
+
+        std::fs::write(path, &data).map_err(SaveFileZipError::Io)
+    }
+
+    pub fn write_to_path_no_zip(&self, path: &Path) -> StreamResult<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let data = self.write_with_hash()?;
+        let data = self.write_with_hash_no_zip()?;
 
         std::fs::write(path, &data)?;
 
@@ -292,15 +507,25 @@ impl SaveFile {
     }
 
     pub fn load_from_path_detect_cc(path: &Path) -> StreamResult<SaveFile> {
-        let data = std::fs::read(path)?;
+        if path.extension().is_some_and(|e| e == "zip") {
+            Self::load_from_zip_file(path, None)
+                .map_err(|e| StreamError::new_str(&e.to_string(), u64::MAX))
+        } else {
+            let data = std::fs::read(path)?;
 
-        Self::load_detect_cc(&data)
+            Self::load_detect_cc_no_zip(&data, None)
+        }
     }
 
     pub fn load_from_path_cc(path: &Path, cc: CountryCode) -> StreamResult<SaveFile> {
-        let data = std::fs::read(path)?;
+        if path.extension().is_some_and(|e| e == "zip") {
+            Self::load_from_zip_file(path, Some(cc))
+                .map_err(|e| StreamError::new_str(&e.to_string(), u64::MAX))
+        } else {
+            let data = std::fs::read(path)?;
 
-        Self::load_cc(&data, cc)
+            Self::load_cc_no_zip(&data, cc, None)
+        }
     }
 }
 
@@ -320,18 +545,22 @@ impl Writable for SaveFile {
 }
 
 impl Readable for SaveFile {
-    type Args<'a> = CountryCode;
+    type Args<'a> = (CountryCode, Option<AccountInfo>);
     fn read<R: std::io::Read + std::io::Seek>(
         reader: &mut R,
         args: Self::Args<'_>,
     ) -> StreamResult<Self> {
         let gv = GameVersion::read_no_opts(reader)?;
 
-        let gvcc = GVCC { gv, cc: args };
+        let gvcc = GVCC { gv, cc: args.0 };
 
         let save = Save::read(reader, gvcc)?;
 
-        Ok(Self { save, gvcc })
+        Ok(Self {
+            save,
+            gvcc,
+            account_info: args.1,
+        })
     }
 }
 
@@ -629,6 +858,28 @@ pub struct Save {
 impl Save {
     pub fn get_inquiry_code(&self) -> Option<&str> {
         Some(&self.gv_44.as_ref()?.inquiry_code.0)
+    }
+    pub fn set_inquiry_code(&mut self, inquiry_code: String) {
+        match &mut self.gv_44 {
+            Some(g) => g.inquiry_code.0 = inquiry_code,
+            None => {
+                self.gv_44 = Some(gv_44::GV44Block {
+                    inquiry_code: inquiry_code.into(),
+                    ..Default::default()
+                })
+            }
+        }
+    }
+    pub fn set_password_refresh_token(&mut self, password_refresh_token: String) {
+        match &mut self.gv_100000 {
+            Some(g) => g.password_refresh_token.0 = password_refresh_token,
+            None => {
+                self.gv_100000 = Some(gv_100000::GV100000Block {
+                    password_refresh_token: password_refresh_token.into(),
+                    ..Default::default()
+                })
+            }
+        }
     }
     pub fn get_inquiry_code_with_default(&self, default: String) -> String {
         self.get_inquiry_code()

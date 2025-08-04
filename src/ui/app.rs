@@ -12,6 +12,7 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
+    network::password::TransferCodes,
     save::SaveFile,
     ui::{
         asset::AssetManager,
@@ -175,9 +176,13 @@ impl ApplicationState {
             }
             Message::SaveSave(save_save_msg) => {
                 if let Some(UIOption::SaveSave(ref mut selected)) = self.selected_screen
-                    && let Some(ref save_file) = self.save_file
+                    && let Some(ref mut save_file) = self.save_file
                 {
-                    return selected.update(save_save_msg, &save_file.save_file);
+                    return selected.update(
+                        save_save_msg,
+                        &mut save_file.save_file,
+                        &self.locale_manager,
+                    );
                 }
             }
             Message::SavedSave(path_buf) => {
@@ -189,6 +194,11 @@ impl ApplicationState {
                     && let Some(ref mut save_file) = self.save_file
                 {
                     return selected.update(msg, &mut save_file.save_file, &self.locale_manager);
+                }
+            }
+            Message::Codes(c) => {
+                if let Some(ref mut save) = self.save_file {
+                    save.codes = Some(c)
                 }
             }
         };
@@ -211,6 +221,7 @@ impl ApplicationState {
             .color(self.theme.palette().primary)
             .width(Length::Fill)
             .align_y(Vertical::Center)
+            .height(Length::Fill)
             .into();
 
         let mut title_row: Vec<Element<Message>> = Vec::new();
@@ -229,7 +240,7 @@ impl ApplicationState {
             title_row.push(save_info);
         }
 
-        notif_row.push(row(title_row).spacing(10).into());
+        notif_row.push(row(title_row).height(Length::Shrink).spacing(10).into());
 
         let mut option_row: Vec<Element<Message>> = Vec::new();
 
@@ -316,6 +327,7 @@ impl ApplicationState {
             app.save_file = Some(LoadedSaveFile {
                 source: super::loadsave::SaveSource::Path(path),
                 save_file: save,
+                codes: None,
             });
         }
 
@@ -335,6 +347,7 @@ pub enum Message {
     SaveSave(SaveSaveMsg),
     SavedSave(PathBuf),
     MainStory(MainStoryMsg),
+    Codes(TransferCodes),
 }
 
 pub fn run_wasm() -> Result<(), Box<dyn std::error::Error>> {

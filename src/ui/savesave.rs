@@ -2,16 +2,17 @@ use std::path::PathBuf;
 
 use iced::{
     Alignment, Element, Length, Task,
-    alignment::Vertical,
+    alignment::{Horizontal, Vertical},
     widget::{container::bordered_box, text::LineHeight},
 };
 
 use crate::{
-    network::password::{TransferCodes, create_and_upload, register_new_account},
+    country_code::CountryCode,
+    network::password::{NewAccountInfo, TransferCodes, UploadInfo, create_and_upload},
     save::SaveFile,
     ui::{
         app::Message,
-        loadsave::{LoadedSaveFile, SaveSource},
+        loadsave::{LoadedSaveFile, LocalizedCC, SaveSource},
         localization::{LocaleManager, Localizable},
     },
 };
@@ -23,16 +24,25 @@ pub enum SaveSaveMsg {
     OnSaveInput(String),
     SelectedData(Option<PathBuf>),
     UploadSave,
-    Uploaded(TransferCodes),
+    Uploaded((TransferCodes, NewAccountInfo)),
+    DoneTransfer,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct SaveSave {
     pub save_path: String,
+    pub cc: CountryCode,
+    pub is_transferring: bool,
+    pub codes: Option<TransferCodes>,
 }
 
 impl SaveSave {
-    pub fn update(&mut self, message: SaveSaveMsg, save: &SaveFile) -> Task<Message> {
+    pub fn update(
+        &mut self,
+        message: SaveSaveMsg,
+        save: &mut SaveFile,
+        locale_manager: &LocaleManager,
+    ) -> Task<Message> {
         match message {
             SaveSaveMsg::SelectPath => {
                 todo!();
@@ -51,30 +61,101 @@ impl SaveSave {
                 }
             }
             SaveSaveMsg::UploadSave => {
-                // TODO: avoid clone
-                return Task::perform(create_and_upload(save.clone()), |r| match r {
-                    Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes)),
-                    Err(e) => Message::Error(e.to_string()),
-                });
+                self.is_transferring = true;
+                let save_data = save.write_with_hash_no_zip();
+                let save_info = UploadInfo::from_save(save);
+                match save_data {
+                    Ok(save_data) => {
+                        return Task::done(Message::Notif("upload-start".localize(locale_manager)))
+                            .chain(Task::perform(
+                                create_and_upload(save_data, save_info),
+                                |r| match r {
+                                    Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes)),
+                                    Err(e) => Message::Error(e.to_string()),
+                                },
+                            ))
+                            .chain(Task::done(Message::SaveSave(SaveSaveMsg::DoneTransfer)));
+                    }
+                    Err(e) => {
+                        return Task::done(Message::Error(e.to_string()))
+                            .chain(Task::done(Message::SaveSave(SaveSaveMsg::DoneTransfer)));
+                    }
+                }
             }
-            SaveSaveMsg::Uploaded(codes) => {
-                dbg!(codes);
+            SaveSaveMsg::Uploaded((codes, new_account_info)) => {
+                save.save.set_inquiry_code(new_account_info.inquiry_code);
+                save.save
+                    .set_password_refresh_token(new_account_info.password_refresh_token);
+                save.account_info = Some(new_account_info.account_info);
+                self.codes = Some(codes.clone());
+
+                return Task::done(Message::Notif(
+                    "successfully-uploaded".localize(locale_manager),
+                ))
+                .chain(Task::done(Message::Codes(codes)));
             }
+            SaveSaveMsg::DoneTransfer => self.is_transferring = false,
         };
         Task::none()
     }
 
     pub fn view(
         &self,
-        _theme: &iced::Theme,
+        theme: &iced::Theme,
         locale_manager: &LocaleManager,
     ) -> Element<'_, Message> {
         let save_path_layout = self.view_save_path_layout(locale_manager);
         let upload_save_layout = self.view_upload_save_layout(locale_manager);
-        iced::widget::container(
-            iced::widget::column([save_path_layout, upload_save_layout]).spacing(10),
-        )
-        .into()
+        let mut col = vec![save_path_layout, upload_save_layout];
+        if let Some(ref codes) = self.codes {
+            let save_codes_layout = iced::widget::container(
+                iced::widget::row([
+                    iced::widget::container(iced::widget::column([
+                        iced::widget::text("transfer-code".localize(&locale_manager))
+                            .color(theme.palette().primary)
+                            .into(),
+                        iced::widget::text(&codes.transfer_code).into(),
+                    ]))
+                    .style(bordered_box)
+                    .padding(10)
+                    .width(Length::Fill)
+                    .into(),
+                    iced::widget::container(iced::widget::column([
+                        iced::widget::text("confirmation-code".localize(&locale_manager))
+                            .color(theme.palette().primary)
+                            .into(),
+                        iced::widget::text(&codes.confirmation_code).into(),
+                    ]))
+                    .style(bordered_box)
+                    .width(Length::Fill)
+                    .padding(10)
+                    .into(),
+                    iced::widget::container(iced::widget::column([
+                        iced::widget::text("country-code".localize(&locale_manager))
+                            .color(theme.palette().primary)
+                            .into(),
+                        iced::widget::text(
+                            LocalizedCC::from_cc(self.cc, locale_manager).to_string(),
+                        )
+                        .into(),
+                    ]))
+                    .style(bordered_box)
+                    .padding(10)
+                    .width(Length::Fill)
+                    .into(),
+                ])
+                .width(Length::Fill)
+                .spacing(10),
+            )
+            .style(bordered_box)
+            .padding(10)
+            .width(Length::Fill)
+            .align_x(Horizontal::Center)
+            .into();
+
+            col.push(save_codes_layout);
+        }
+        iced::widget::container(iced::widget::column(col).spacing(10)).into()
     }
 
     fn view_upload_save_layout(&self, locale_manager: &LocaleManager) -> Element<'_, Message> {
@@ -84,7 +165,11 @@ impl SaveSave {
                     .align_x(Alignment::Center)
                     .width(Length::Fill),
             )
-            .on_press(Message::SaveSave(SaveSaveMsg::UploadSave))
+            .on_press_maybe(if self.is_transferring {
+                None
+            } else {
+                Some(Message::SaveSave(SaveSaveMsg::UploadSave))
+            })
             .width(Length::Fill),
         )
         .padding(10)
@@ -132,6 +217,7 @@ impl SaveSave {
             SaveSource::TransferCodes => {}
             SaveSource::Data => {}
         }
+        self.cc = save_file.save_file.gvcc.cc;
     }
 
     fn save_save_to_path(&self, save: &SaveFile) -> Result<PathBuf, Box<dyn std::error::Error>> {

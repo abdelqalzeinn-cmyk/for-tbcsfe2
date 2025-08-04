@@ -6,7 +6,7 @@ use crate::{
         signature::{sign_v1, sign_v2},
         transfer::{ClientInfo, gen_nonce, new_client},
     },
-    save::SaveFile,
+    save::{AccountInfo, GVCC, SaveFile},
     stream::StreamError,
 };
 
@@ -306,7 +306,43 @@ pub struct NewAccountData {
     pub inquiry_code: String,
 }
 
-pub async fn create_and_upload(save_file: SaveFile) -> Result<TransferCodes, PasswordError> {
+#[derive(Debug, Clone, Copy)]
+pub struct UploadInfo {
+    pub gvcc: GVCC,
+    pub catfood: i32,
+    pub rare_tickets: i32,
+    pub platinum_tickets: i32,
+    pub legend_tickets: i32,
+    pub playtime: i32,
+    pub user_rank: i32,
+}
+
+impl UploadInfo {
+    pub fn from_save(save: &SaveFile) -> Self {
+        Self {
+            gvcc: save.gvcc,
+            catfood: save.save.catfood,
+            rare_tickets: save.save.rare_tickets,
+            platinum_tickets: save.save.get_platinum_tickets().unwrap_or_default(),
+            legend_tickets: save.save.get_legend_tickets().unwrap_or_default(),
+            playtime: save.save.get_play_time().unwrap_or_default(),
+            user_rank: save.save.calculate_user_rank(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NewAccountInfo {
+    pub account_info: AccountInfo,
+    pub password_refresh_token: String,
+    pub inquiry_code: String,
+}
+
+// TODO: don't always create a new account
+pub async fn create_and_upload(
+    save_data: Vec<u8>,
+    info: UploadInfo,
+) -> Result<(TransferCodes, NewAccountInfo), PasswordError> {
     let iq = create_new_account().await?;
 
     let resp = register_new_account(&iq.account_id, get_unix_timestamp()).await?;
@@ -316,25 +352,20 @@ pub async fn create_and_upload(save_file: SaveFile) -> Result<TransferCodes, Pas
     let inquiry_code = payload.account_code.unwrap_or(iq.account_id);
     let password = payload.password;
 
-    let auth_token = get_auth_token(
-        &inquiry_code,
-        &password,
-        save_file.gvcc.cc,
-        save_file.gvcc.gv,
-    )
-    .await?
-    .into_payload()?
-    .token;
+    let auth_token = get_auth_token(&inquiry_code, &password, info.gvcc.cc, info.gvcc.gv)
+        .await?
+        .into_payload()?
+        .token;
 
     update_managed_items(
         &auth_token,
         &inquiry_code,
         &ManagedItemsUpdate {
-            catfood_amount: save_file.save.catfood,
+            catfood_amount: info.catfood,
             is_paid: false,
-            legend_ticket_amount: save_file.save.get_legend_tickets().unwrap_or_default(),
-            platinum_ticket_amount: save_file.save.get_platinum_tickets().unwrap_or_default(),
-            rare_ticket_amount: save_file.save.rare_tickets,
+            legend_ticket_amount: info.legend_tickets,
+            platinum_ticket_amount: info.platinum_tickets,
+            rare_ticket_amount: info.rare_tickets,
         },
     )
     .await?;
@@ -347,18 +378,25 @@ pub async fn create_and_upload(save_file: SaveFile) -> Result<TransferCodes, Pas
         &auth_token,
         save_key,
         &inquiry_code,
-        save_file
-            .write_with_hash()
-            .map_err(PasswordError::SerializeSave)?,
+        save_data,
         Vec::new(),
-        save_file.save.get_play_time().unwrap_or_default(),
-        save_file.save.calculate_user_rank(),
+        info.playtime,
+        info.user_rank,
         Vec::new(),
     )
     .await?
     .into_payload()?;
 
-    Ok(codes)
+    let account_info = NewAccountInfo {
+        password_refresh_token: payload.password_refresh_token,
+        inquiry_code,
+        account_info: AccountInfo {
+            password: Some(password),
+            auth_token: Some(auth_token),
+        },
+    };
+
+    Ok((codes, account_info))
 }
 
 #[derive(Debug, serde::Serialize)]
