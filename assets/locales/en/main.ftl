@@ -51,3 +51,12 @@ successfully-uploaded = Successfully Uploaded Save Data
 transfer-code-colon = Transfer Code:
 confirmation-code-colon = Confirmation Code:
 transfer-code-splitter = -
+
+save-save-save-path = Write Save File to Path
+upload-save-file = Upload Save File
+save-save-system-dialog = Use System Dialog to Write Save File
+write-save-file = Write Save File
+
+load-save-dialog = Load Save File
+saved-save = Successfully saved save file
+no-save-save = Did not save save file
