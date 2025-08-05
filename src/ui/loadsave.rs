@@ -6,7 +6,7 @@ use std::{
 use iced::{
     Element, Length, Task, Theme,
     alignment::{Horizontal, Vertical},
-    widget::{container::bordered_box, text::LineHeight},
+    widget::text::LineHeight,
 };
 
 use crate::{
@@ -15,6 +15,7 @@ use crate::{
     save::SaveFile,
     ui::{
         app::Message,
+        helper::labeled_box,
         localization::{LocaleManager, Localizable},
     },
 };
@@ -262,19 +263,18 @@ impl LoadSave {
     }
     pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let transfer_code_layout = self.view_transfer_code_layout(theme, locale_manager);
-        let open_save_btn = iced::widget::container(
+        let open_save_btn = labeled_box(
+            theme,
+            "load-save-dialog".localize(locale_manager),
             iced::widget::button(
                 iced::widget::text("load-save-system".localize(locale_manager))
                     .width(Length::Fill)
                     .align_x(Horizontal::Center),
             )
             .width(Length::Fill)
-            .on_press(Message::LoadSave(LoadSaveMsg::SelectPath)),
-        )
-        .width(Length::Fill)
-        .padding(10)
-        .style(bordered_box)
-        .into();
+            .on_press(Message::LoadSave(LoadSaveMsg::SelectPath))
+            .into(),
+        );
         let mut cols = Vec::new();
         cols.push(open_save_btn);
 
@@ -340,18 +340,11 @@ impl LoadSave {
         .height(Length::Shrink)
         .spacing(10);
 
-        iced::widget::container(
-            iced::widget::column([
-                iced::widget::text("load-save-from-codes".localize(locale_manager))
-                    .color(theme.palette().primary)
-                    .into(),
-                transfer_code_layout.into(),
-            ])
-            .spacing(10),
+        labeled_box(
+            theme,
+            "load-save-from-codes".localize(locale_manager),
+            transfer_code_layout.into(),
         )
-        .padding(10)
-        .style(bordered_box)
-        .into()
     }
 
     #[cfg(not(feature = "wasm"))]
@@ -384,18 +377,10 @@ impl LoadSave {
         ])
         .height(Length::Shrink)
         .spacing(10);
-        let save_path_layout: Element<Message> = iced::widget::container(
-            iced::widget::column([
-                iced::widget::text("load-save-from-path".localize(locale_manager))
-                    .color(theme.palette().primary)
-                    .into(),
-                select_save_layout.into(),
-            ])
-            .spacing(10),
+        labeled_box(
+            theme,
+            "load-save-from-path".localize(locale_manager),
+            select_save_layout.into(),
         )
-        .padding(10)
-        .style(bordered_box)
-        .into();
-        save_path_layout
     }
 }

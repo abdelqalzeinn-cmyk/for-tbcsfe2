@@ -2,6 +2,7 @@ pub mod app;
 pub mod asset;
 pub mod catfood;
 pub mod editview;
+pub mod helper;
 pub mod loadsave;
 pub mod localization;
 pub mod mainstory;
