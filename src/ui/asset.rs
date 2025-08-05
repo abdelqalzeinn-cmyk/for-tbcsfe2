@@ -13,7 +13,7 @@ impl AssetManager {
         let path = if let Some(base_path) = base_path {
             base_path.to_path_buf()
         } else {
-            std::env::current_exe()
+            let exe = std::env::current_exe()
                 .map_err(|e| {
                     std::io::Error::other(format!("failed to get path of executable, {e}"))
                 })?
@@ -21,7 +21,13 @@ impl AssetManager {
                 .ok_or(std::io::Error::other(
                     "failed to get parent path of executable",
                 ))?
-                .join("assets")
+                .join("assets");
+
+            if std::fs::exists(&exe)? {
+                exe
+            } else {
+                PathBuf::from("./assets/").canonicalize()?
+            }
         };
 
         if !std::fs::exists(&path)? {
