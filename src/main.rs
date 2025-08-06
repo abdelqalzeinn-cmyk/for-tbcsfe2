@@ -1,14 +1,20 @@
+#[cfg(feature = "adb")]
+pub mod adb;
+
+#[cfg(feature = "network")]
+pub mod network;
+
+#[cfg(feature = "gui")]
+pub mod ui;
+
 pub mod blocks;
 pub mod country_code;
+pub mod ext_source;
 pub mod game;
 pub mod game_version;
 pub mod hash;
-#[cfg(feature = "network")]
-pub mod network;
 pub mod save;
 pub mod stream;
-#[cfg(feature = "gui")]
-pub mod ui;
 
 #[cfg(feature = "wasm")]
 fn main() {

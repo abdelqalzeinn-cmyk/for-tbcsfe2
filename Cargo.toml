@@ -28,6 +28,7 @@ hmac = { version = "0.12", optional = true }
 hex = { version = "0.4", optional = true }
 sha1 = { version = "0.10", optional = true }
 zip = "4.3"
+adb_client = { version = "2.1", optional = true }
 
 [workspace]
 members = ["bcsfe_derive"]
@@ -42,6 +43,7 @@ wasm = [
 ]
 gui = [
   "network",
+  "adb",
   "dep:iced",
   "dep:rfd",
   "dep:fluent",
@@ -61,3 +63,4 @@ network = [
   "dep:hex",
   "dep:thiserror",
 ]
+adb = ["dep:adb_client"]

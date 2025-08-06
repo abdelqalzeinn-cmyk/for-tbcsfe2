@@ -154,7 +154,7 @@ impl ApplicationState {
             Message::Init => {}
             Message::LoadSave(msg) => {
                 if let Some(UIOption::LoadSave(ref mut selected)) = self.selected_screen {
-                    return selected.update(msg);
+                    return selected.update(msg, &self.locale_manager);
                 }
             }
             Message::ChangePane(mut uioption) => {

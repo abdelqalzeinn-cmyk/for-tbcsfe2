@@ -60,3 +60,9 @@ write-save-file = Write Save File
 load-save-dialog = Load Save File
 saved-save = Successfully saved save file
 no-save-save = Did not save save file
+
+adb-pull = Adb Pull
+refresh = Refresh
+selected-device = Selected Device
+packages = Game Packages
+devices = Devices

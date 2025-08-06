@@ -12,11 +12,11 @@ pub fn localized_box<'a>(
     labeled_box(theme, label.localize(locale_manager), inner)
 }
 
-pub fn labeled_box<'a>(
+pub fn labeled_box<'a, M: 'a>(
     theme: &iced::Theme,
     label: String,
-    inner: iced::Element<'a, Message>,
-) -> iced::Element<'a, Message> {
+    inner: iced::Element<'a, M>,
+) -> iced::Element<'a, M> {
     iced::widget::container(
         iced::widget::column([
             iced::widget::text(label)

@@ -1,3 +1,4 @@
+pub mod adb;
 pub mod app;
 pub mod asset;
 pub mod catfood;

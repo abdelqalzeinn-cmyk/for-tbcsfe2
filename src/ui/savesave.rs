@@ -253,6 +253,7 @@ impl SaveSave {
             SaveSource::Path(path_buf) => self.save_path = path_buf.to_string_lossy().to_string(),
             SaveSource::TransferCodes => {}
             SaveSource::Data => {}
+            SaveSource::Adb(_) => {}
         }
         self.cc = save_file.save_file.gvcc.cc;
     }

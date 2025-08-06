@@ -14,6 +14,7 @@ use crate::{
     network::{password::TransferCodes, transfer::from_codes},
     save::SaveFile,
     ui::{
+        adb::{AdbMessage, AdbView},
         app::Message,
         helper::labeled_box,
         localization::{LocaleManager, Localizable},
@@ -32,6 +33,7 @@ pub enum LoadSaveMsg {
     OnTransferInput(String),
     OnConfirmationInput(String),
     SelectCC(CountryCode),
+    Adb(AdbMessage),
 }
 
 impl LoadedSaveFile {
@@ -98,6 +100,7 @@ pub enum SaveSource {
     Path(PathBuf),
     Data,
     TransferCodes,
+    Adb(String),
 }
 
 impl Default for SaveSource {
@@ -117,13 +120,14 @@ pub async fn select_save() -> Option<Vec<u8>> {
     Some(rfd::AsyncFileDialog::new().pick_file().await?.read().await)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct LoadSave {
     pub save_path: String,
     pub save_data: Option<Vec<u8>>,
     pub transfer_code: String,
     pub confirmation_code: String,
     pub selected_cc: Option<CountryCode>,
+    pub adb: AdbView,
 }
 
 impl Default for LoadSave {
@@ -134,6 +138,7 @@ impl Default for LoadSave {
             transfer_code: String::default(),
             confirmation_code: String::default(),
             selected_cc: Some(CountryCode::En),
+            adb: AdbView::new(true),
         }
     }
 }
@@ -168,7 +173,11 @@ impl LocalizedCC {
 }
 
 impl LoadSave {
-    pub fn update(&mut self, message: LoadSaveMsg) -> Task<Message> {
+    pub fn update(
+        &mut self,
+        message: LoadSaveMsg,
+        locale_manager: &LocaleManager,
+    ) -> Task<Message> {
         match message {
             LoadSaveMsg::SelectPath => {
                 return Task::perform(select_save(), |d| {
@@ -231,6 +240,28 @@ impl LoadSave {
             LoadSaveMsg::OnTransferInput(t) => self.transfer_code = t,
             LoadSaveMsg::OnConfirmationInput(c) => self.confirmation_code = c,
             LoadSaveMsg::SelectCC(country_code) => self.selected_cc = Some(country_code),
+            LoadSaveMsg::Adb(adb_message) => {
+                if let AdbMessage::Error(e) = adb_message {
+                    return Task::done(Message::Error(e));
+                }
+                if let AdbMessage::LoadSave(data, pkg) = adb_message {
+                    let save = SaveFile::load_detect_cc_no_zip(&data, None);
+                    match save {
+                        Ok(s) => {
+                            return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
+                                source: SaveSource::Adb(pkg),
+                                save_file: s,
+                                codes: None,
+                            })));
+                        }
+                        Err(e) => return Task::done(Message::Error(e.to_string())),
+                    }
+                }
+                return self
+                    .adb
+                    .update(adb_message, locale_manager)
+                    .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m)));
+            }
         };
         Task::none()
     }
@@ -282,6 +313,13 @@ impl LoadSave {
         cols.push(self.view_save_path_layout(theme, locale_manager));
 
         cols.push(transfer_code_layout);
+
+        cols.push(
+            self.adb
+                .view(theme, locale_manager)
+                .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m))),
+        );
+
         iced::widget::container(iced::widget::column(cols).spacing(10)).into()
     }
 
