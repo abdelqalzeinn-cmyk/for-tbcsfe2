@@ -2,11 +2,12 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
 use crate::{
     network::{
+        account_info::{EditorAccountInfo, GameAccountInfo},
         get_unix_timestamp,
         signature::{sign_v1, sign_v2},
         transfer::{ClientInfo, gen_nonce, new_client},
     },
-    save::{AccountInfo, GVCC, SaveFile},
+    save::{GVCC, SaveFile},
     stream::StreamError,
 };
 
@@ -306,8 +307,10 @@ pub struct NewAccountData {
     pub inquiry_code: String,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct UploadInfo {
+    pub inquiry_code: Option<String>,
+    pub password_refresh_token: Option<String>,
     pub gvcc: GVCC,
     pub catfood: i32,
     pub rare_tickets: i32,
@@ -327,59 +330,143 @@ impl UploadInfo {
             legend_tickets: save.save.get_legend_tickets().unwrap_or_default(),
             playtime: save.save.get_play_time().unwrap_or_default(),
             user_rank: save.save.calculate_user_rank(),
+            inquiry_code: save.save.get_inquiry_code().map(String::from),
+            password_refresh_token: save.save.get_password_refresh_token().map(String::from),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct NewAccountInfo {
-    pub account_info: AccountInfo,
+    pub account_info: GameAccountInfo,
     pub password_refresh_token: String,
     pub inquiry_code: String,
 }
 
-// TODO: don't always create a new account
-pub async fn create_and_upload(
+#[derive(Debug, Clone)]
+pub struct AccountState {
+    pub inquiry_code: Option<String>,
+    pub account_info: GameAccountInfo,
+    pub password_refresh_token: Option<String>,
+    pub gvcc: GVCC,
+    pub items: ManagedItemsUpdate,
+    pub account_created_at: u64,
+}
+
+impl AccountState {
+    pub async fn try_get_inquiry_code(&mut self) -> Result<String, PasswordError> {
+        if let Some(ref iq) = self.inquiry_code {
+            return Ok(iq.to_string());
+        }
+        let iq = create_new_account().await?.account_id;
+
+        self.inquiry_code = Some(iq.clone());
+
+        Ok(iq)
+    }
+    pub async fn init_new_account(&mut self) -> Result<(), PasswordError> {
+        let token = Box::pin(self.try_get_auth_token()).await?;
+
+        let iq = self.try_get_inquiry_code().await?;
+
+        update_managed_items(&token, &iq, &self.items).await?;
+
+        Ok(())
+    }
+
+    pub async fn try_get_password_refresh_token(&mut self) -> Result<String, PasswordError> {
+        if let Some(ref prt) = self.password_refresh_token {
+            return Ok(prt.to_string());
+        }
+
+        let iq = self.try_get_inquiry_code().await?;
+
+        let payload = register_new_account(&iq, self.account_created_at)
+            .await?
+            .into_payload()?;
+
+        self.password_refresh_token = Some(payload.password_refresh_token.clone());
+        self.account_info.password = Some(payload.password);
+
+        Ok(payload.password_refresh_token)
+    }
+
+    pub async fn try_get_password(&mut self) -> Result<String, PasswordError> {
+        if let Some(ref pw) = self.account_info.password {
+            return Ok(pw.to_string());
+        }
+
+        let prt = self.try_get_password_refresh_token().await?;
+        let iq = self.try_get_inquiry_code().await?;
+
+        let mut payload = refresh_password(&iq, &prt).await?.into_payload();
+
+        if payload.is_err() {
+            payload = register_new_account(&iq, self.account_created_at)
+                .await?
+                .into_payload();
+        }
+
+        let payload = payload?;
+
+        self.password_refresh_token = Some(payload.password_refresh_token);
+        self.account_info.password = Some(payload.password.clone());
+        if let Some(iq) = payload.account_code {
+            self.inquiry_code = Some(iq);
+            self.init_new_account().await?;
+        }
+
+        return Ok(payload.password);
+    }
+
+    pub async fn try_get_auth_token(&mut self) -> Result<String, PasswordError> {
+        if let Some(ref token) = self.account_info.auth_token {
+            return Ok(token.to_string());
+        }
+        let password = self.try_get_password().await?;
+        let iq = self.try_get_inquiry_code().await?;
+        let token = get_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
+            .await?
+            .into_payload()?
+            .token;
+
+        self.account_info.auth_token = Some(token.clone());
+
+        Ok(token)
+    }
+}
+
+pub async fn upload_save(
     save_data: Vec<u8>,
     info: UploadInfo,
+    account_info: EditorAccountInfo,
 ) -> Result<(TransferCodes, NewAccountInfo), PasswordError> {
-    let iq = create_new_account().await?;
-
-    let resp = register_new_account(&iq.account_id, get_unix_timestamp()).await?;
-
-    let payload = resp.into_payload()?;
-
-    let inquiry_code = payload.account_code.unwrap_or(iq.account_id);
-    let password = payload.password;
-
-    let auth_token = get_auth_token(&inquiry_code, &password, info.gvcc.cc, info.gvcc.gv)
-        .await?
-        .into_payload()?
-        .token;
-
-    update_managed_items(
-        &auth_token,
-        &inquiry_code,
-        &ManagedItemsUpdate {
+    let mut state = AccountState {
+        inquiry_code: info.inquiry_code,
+        account_info: account_info.account_info,
+        password_refresh_token: info.password_refresh_token,
+        gvcc: info.gvcc,
+        items: ManagedItemsUpdate {
             catfood_amount: info.catfood,
-            is_paid: false,
+            is_paid: false, // TODO
             legend_ticket_amount: info.legend_tickets,
             platinum_ticket_amount: info.platinum_tickets,
             rare_ticket_amount: info.rare_tickets,
         },
-    )
-    .await?;
+        account_created_at: 0, // TODO
+    };
+
+    let auth_token = state.try_get_auth_token().await?;
+    let inquiry_code = state.try_get_inquiry_code().await?;
 
     let save_key = get_save_key(&auth_token).await?.into_payload()?;
-
-    // TODO: write new account code, password, password refresh token, auth token, save key
 
     let codes = upload_save_data(
         &auth_token,
         save_key,
         &inquiry_code,
         save_data,
-        Vec::new(),
+        account_info.managed_items,
         info.playtime,
         info.user_rank,
         Vec::new(),
@@ -387,16 +474,26 @@ pub async fn create_and_upload(
     .await?
     .into_payload()?;
 
+    let prt = state.try_get_password_refresh_token().await?;
+    let password = state.try_get_password().await?;
+
     let account_info = NewAccountInfo {
-        password_refresh_token: payload.password_refresh_token,
+        password_refresh_token: prt,
         inquiry_code,
-        account_info: AccountInfo {
+        account_info: GameAccountInfo {
             password: Some(password),
             auth_token: Some(auth_token),
         },
     };
 
     Ok((codes, account_info))
+}
+
+pub async fn create_and_upload(
+    save_data: Vec<u8>,
+    info: UploadInfo,
+) -> Result<(TransferCodes, NewAccountInfo), PasswordError> {
+    upload_save(save_data, info, EditorAccountInfo::default()).await
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -518,13 +615,13 @@ async fn post_save_data(
     }
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ManagedItemDetailType {
     Get,
     Use,
 }
-#[derive(Debug, Copy, Clone, serde::Serialize)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ManagedItemType {
     Catfood,
@@ -533,7 +630,7 @@ pub enum ManagedItemType {
     LegendTicket,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManagedItem {
     amount: i32,

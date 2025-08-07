@@ -11,7 +11,11 @@ use iced::{
 
 use crate::{
     country_code::CountryCode,
-    network::{password::TransferCodes, transfer::from_codes},
+    network::{
+        account_info::{EditorAccountInfo, GameAccountInfo, SaveFileAccount},
+        password::TransferCodes,
+        transfer::from_codes,
+    },
     save::SaveFile,
     ui::{
         adb::{AdbMessage, AdbView},
@@ -34,6 +38,7 @@ pub enum LoadSaveMsg {
     OnConfirmationInput(String),
     SelectCC(CountryCode),
     Adb(AdbMessage),
+    PulledAccountInfo(SaveFile, GameAccountInfo, String),
 }
 
 impl LoadedSaveFile {
@@ -43,14 +48,16 @@ impl LoadedSaveFile {
 
         let inquiry_code = iced::widget::text(
             self.save_file
+                .save_file
                 .save
                 .get_inquiry_code_with_default("no-inquiry-code".localize(locale_manager)),
         );
 
-        let game_version = iced::widget::text(self.save_file.gvcc.gv.to_string());
+        let game_version = iced::widget::text(self.save_file.save_file.gvcc.gv.to_string());
 
-        let country_code =
-            iced::widget::text(LocalizedCC::from_cc(self.save_file.gvcc.cc, locale_manager).1);
+        let country_code = iced::widget::text(
+            LocalizedCC::from_cc(self.save_file.save_file.gvcc.cc, locale_manager).1,
+        );
 
         let info_row = iced::widget::row([
             first_text.into(),
@@ -112,7 +119,7 @@ impl Default for SaveSource {
 #[derive(Debug, Clone)]
 pub struct LoadedSaveFile {
     pub source: SaveSource,
-    pub save_file: SaveFile,
+    pub save_file: SaveFileAccount,
     pub codes: Option<TransferCodes>,
 }
 
@@ -219,15 +226,20 @@ impl LoadSave {
                 );
             }
             LoadSaveMsg::LoadedCodes(r) => {
-                let save_file = SaveFile::load_detect_cc_no_zip(&r.save_data, r.account_info);
+                let save_file = SaveFile::load_detect_cc(&r.save_data);
                 match save_file {
                     Ok(mut s) => {
                         if let Some(prt) = r.password_refresh_token {
                             s.save.set_password_refresh_token(prt);
                         }
+
+                        let save_file = SaveFileAccount {
+                            save_file: s,
+                            account_info: EditorAccountInfo::new(r.account_info, Vec::new()),
+                        };
                         return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
                             source: SaveSource::TransferCodes,
-                            save_file: s,
+                            save_file,
                             codes: Some(TransferCodes {
                                 transfer_code: self.transfer_code.clone(),
                                 confirmation_code: self.confirmation_code.clone(),
@@ -244,15 +256,31 @@ impl LoadSave {
                 if let AdbMessage::Error(e) = adb_message {
                     return Task::done(Message::Error(e));
                 }
+                if let AdbMessage::PulledAccountInfo(s, info) = adb_message {
+                    return Task::done(Message::LoadSave(LoadSaveMsg::PulledAccountInfo(
+                        s,
+                        info,
+                        self.adb.selected_pkg.clone().unwrap_or_default(),
+                    )));
+                }
                 if let AdbMessage::LoadSave(data, pkg) = adb_message {
-                    let save = SaveFile::load_detect_cc_no_zip(&data, None);
+                    let save = SaveFile::load_detect_cc(&data);
                     match save {
                         Ok(s) => {
-                            return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
-                                source: SaveSource::Adb(pkg),
-                                save_file: s,
-                                codes: None,
-                            })));
+                            let iq = s.save.get_inquiry_code().map(|v| v.to_string());
+                            if let Some(iq) = iq {
+                                return Task::done(Message::LoadSave(LoadSaveMsg::Adb(
+                                    AdbMessage::PullAccountInfo(s, iq),
+                                )));
+                            } else {
+                                return Task::done(Message::LoadSave(
+                                    LoadSaveMsg::PulledAccountInfo(
+                                        s,
+                                        GameAccountInfo::default(),
+                                        pkg,
+                                    ),
+                                ));
+                            }
                         }
                         Err(e) => return Task::done(Message::Error(e.to_string())),
                     }
@@ -262,12 +290,27 @@ impl LoadSave {
                     .update(adb_message, locale_manager)
                     .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m)));
             }
+            LoadSaveMsg::PulledAccountInfo(save_file, game_account_info, pkg) => {
+                let save_file = SaveFileAccount {
+                    save_file,
+                    account_info: EditorAccountInfo {
+                        account_info: game_account_info,
+                        managed_items: Vec::new(),
+                    },
+                };
+                return Task::done(Message::LoadedSave(Box::new(LoadedSaveFile {
+                    source: SaveSource::Adb(pkg),
+                    save_file,
+                    codes: None,
+                })));
+            }
         };
         Task::none()
     }
 
     fn load_save_from_path(&self) -> Result<LoadedSaveFile, Box<dyn std::error::Error>> {
-        let save_file = SaveFile::load_from_path_detect_cc(Path::new(self.save_path.as_str()))?;
+        let path = Path::new(self.save_path.as_str());
+        let save_file = SaveFileAccount::load_from_path(path, None)?;
         let path = std::fs::canonicalize(Path::new(&self.save_path))?;
         Ok(LoadedSaveFile {
             source: SaveSource::Path(path),
@@ -282,9 +325,12 @@ impl LoadSave {
             .ok_or(std::io::Error::other("no save data"))?;
         let is_zip = zip::ZipArchive::new(std::io::Cursor::new(save_data)).is_ok();
         let save_file = if is_zip {
-            SaveFile::load_from_zip_data(save_data, None)?
+            SaveFileAccount::load_from_zip_data(save_data, None)?
         } else {
-            SaveFile::load_detect_cc_no_zip(&save_data, None)?
+            SaveFileAccount {
+                save_file: SaveFile::load_detect_cc(&save_data)?,
+                account_info: EditorAccountInfo::default(),
+            }
         };
         Ok(LoadedSaveFile {
             source: SaveSource::Data,

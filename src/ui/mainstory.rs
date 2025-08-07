@@ -4,6 +4,7 @@ use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::{
     game::main_story::StoryChapterType,
+    network::account_info::SaveFileAccount,
     ui::{
         app::Message,
         editview::EditView,
@@ -94,7 +95,7 @@ pub enum MainStoryMsg {
 
 impl EditView for MainStory {
     type Message = MainStoryMsg;
-    fn init(&mut self, _save_file: &crate::save::SaveFile) {}
+    fn init(&mut self, _save_file: &SaveFileAccount) {}
     fn view(
         &self,
         _theme: &iced::Theme,
@@ -172,7 +173,7 @@ impl EditView for MainStory {
     fn update(
         &mut self,
         message: Self::Message,
-        save_file: &mut crate::save::SaveFile,
+        save_file: &mut SaveFileAccount,
         _locale_manager: &LocaleManager,
     ) -> iced::Task<super::app::Message> {
         match message {
@@ -187,7 +188,7 @@ impl EditView for MainStory {
             MainStoryMsg::ClearChapters => {
                 for (i, selected) in self.selected_chapters.iter().enumerate() {
                     if *selected {
-                        save_file.save.story_chapters.clear_chapter(
+                        save_file.save_file.save.story_chapters.clear_chapter(
                             crate::game::main_story::ClearChapterOptions {
                                 chapter: StoryChapterType::from_usize_human(i)
                                     .unwrap_or_else(|| panic!("{i} was not between 0 and 8")),

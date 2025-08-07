@@ -4,6 +4,8 @@ use iced::{Element, Length, Task, alignment::Vertical, widget::container::border
 use crate::{
     adb::{adb_handler::AdbGameHandler, waydroid_handler::WaydroidGameHandler},
     ext_source::ExternalSaveSource,
+    network::account_info::GameAccountInfo,
+    save::SaveFile,
     ui::{
         helper::labeled_box,
         localization::{LocaleManager, Localizable},
@@ -15,6 +17,7 @@ pub struct AdbView {
     pub available_devices: Vec<DeviceShort>,
     pub selected_device: Option<DeviceShort>,
     pub available_pkgs: Vec<String>,
+    pub selected_pkg: Option<String>,
     pub is_waydroid: bool,
 }
 
@@ -160,6 +163,7 @@ impl AdbView {
             AdbMessage::AvailablePackages(items) => self.available_pkgs = items,
             AdbMessage::PkgClicked(pkg) => {
                 if let Some(ref sel) = self.selected_device {
+                    self.selected_pkg = Some(pkg.clone());
                     let pkg2 = pkg.clone();
                     if self.is_waydroid {
                         let mut manager = WaydroidGameHandler::new();
@@ -184,9 +188,59 @@ impl AdbView {
                     };
                 }
             }
+            AdbMessage::PullAccountInfo(s, inquiry_code) => {
+                let selected_device = self.selected_device.clone();
+                let selected_pkg = self.selected_pkg.clone();
+                let is_waydroid = self.is_waydroid;
+                return Task::perform(
+                    Self::pull_account_info(
+                        inquiry_code,
+                        selected_device,
+                        selected_pkg,
+                        is_waydroid,
+                    ),
+                    |r| match r {
+                        Ok(o) => AdbMessage::PulledAccountInfo(s, o),
+                        Err(e) => AdbMessage::Error(e),
+                    },
+                );
+            }
+            AdbMessage::PulledAccountInfo(..) => {
+                panic!("pulled account info must be handled further up!")
+            }
         };
 
         iced::Task::none()
+    }
+
+    pub async fn pull_account_info(
+        inquiry_code: String,
+        selected_device: Option<DeviceShort>,
+        selected_pkg: Option<String>,
+        is_waydroid: bool,
+    ) -> Result<GameAccountInfo, String> {
+        let selected_device = selected_device.ok_or("no device selected")?;
+        let selected_pkg = selected_pkg.ok_or("no package selected")?;
+        let account_data = match is_waydroid {
+            true => {
+                let mut manager = WaydroidGameHandler::new();
+                manager.set_selected_device(selected_device);
+                manager
+                    .read_account_info(&selected_pkg, &inquiry_code)
+                    .await
+                    .map_err(|e| e.to_string())?
+            }
+            false => {
+                let mut manager = AdbGameHandler::new();
+                manager.set_selected_device(selected_device);
+                manager
+                    .read_account_info(&selected_pkg, &inquiry_code)
+                    .await
+                    .map_err(|e| e.to_string())?
+            }
+        };
+
+        GameAccountInfo::from_data(&account_data).map_err(|e| e.to_string())
     }
 }
 
@@ -199,4 +253,6 @@ pub enum AdbMessage {
     AvailablePackages(Vec<String>),
     PkgClicked(String),
     LoadSave(Vec<u8>, String),
+    PullAccountInfo(SaveFile, String),
+    PulledAccountInfo(SaveFile, GameAccountInfo),
 }

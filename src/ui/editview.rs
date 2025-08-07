@@ -4,7 +4,7 @@ use fluent::FluentArgs;
 use iced::{Element, Length, Task};
 
 use crate::{
-    save::SaveFile,
+    network::account_info::SaveFileAccount,
     ui::{
         app::Message,
         localization::{LocaleManager, Localizable},
@@ -14,14 +14,14 @@ use crate::{
 pub trait EditView {
     type Message;
 
-    fn init(&mut self, save_file: &SaveFile);
+    fn init(&mut self, save_file: &SaveFileAccount);
 
     fn view(&self, theme: &iced::Theme, locale_manager: &LocaleManager) -> Element<'_, Message>;
 
     fn update(
         &mut self,
         message: Self::Message,
-        save_file: &mut SaveFile,
+        save_file: &mut SaveFileAccount,
         locale_manager: &LocaleManager,
     ) -> Task<Message>;
 }
@@ -61,8 +61,8 @@ impl<T> BasicItemView<T> {
 }
 
 pub trait BasicItem {
-    fn get_save_value(save_file: &SaveFile) -> i32;
-    fn set_save_value(save_file: &mut SaveFile, value: i32);
+    fn get_save_value(save_file: &SaveFileAccount) -> i32;
+    fn set_save_value(save_file: &mut SaveFileAccount, value: i32);
 
     fn feature() -> BasicItemFeature;
 
@@ -102,7 +102,7 @@ impl Display for BasicItemFeature {
 
 impl<T: BasicItem> EditView for BasicItemView<T> {
     type Message = BasicItemMessage;
-    fn init(&mut self, save_file: &SaveFile) {
+    fn init(&mut self, save_file: &SaveFileAccount) {
         self.current_value = T::get_save_value(save_file).to_string();
     }
 
@@ -135,7 +135,7 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
     fn update(
         &mut self,
         message: Self::Message,
-        save_file: &mut SaveFile,
+        save_file: &mut SaveFileAccount,
         locale_manager: &LocaleManager,
     ) -> Task<Message> {
         match message {

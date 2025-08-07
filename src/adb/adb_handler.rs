@@ -152,14 +152,6 @@ impl AdbGameHandler {
         Self::default()
     }
 
-    pub fn get_save_path(pkg: &str) -> PathBuf {
-        PathBuf::from("/data")
-            .join("data")
-            .join(pkg)
-            .join("files")
-            .join("SAVE_DATA")
-    }
-
     pub fn get_devices(&mut self) -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
         self.handler.get_devices()
     }
@@ -171,18 +163,15 @@ impl AdbGameHandler {
 
 impl ExternalSaveSource for AdbGameHandler {
     type Error = adb_client::RustADBError;
-    async fn write_save(&mut self, data: Vec<u8>, pkg: &str) -> Result<(), Self::Error> {
-        self.handler
-            .push_file(&mut std::io::Cursor::new(data), &Self::get_save_path(pkg))
-            .await
-    }
-    async fn read_save(&mut self, pkg: &str) -> Result<Vec<u8>, Self::Error> {
+    async fn read_path(&mut self, path: &Path) -> Result<Vec<u8>, Self::Error> {
         let mut writer = std::io::Cursor::new(Vec::new());
-        self.handler
-            .pull_file(&Self::get_save_path(pkg), &mut writer)
-            .await?;
-
+        self.handler.pull_file(path, &mut writer).await?;
         Ok(writer.into_inner())
+    }
+    async fn write_path(&mut self, data: Vec<u8>, path: &Path) -> Result<(), Self::Error> {
+        self.handler
+            .push_file(&mut std::io::Cursor::new(data), path)
+            .await
     }
 
     async fn close_game(&mut self, pkg: &str) -> Result<(), Self::Error> {

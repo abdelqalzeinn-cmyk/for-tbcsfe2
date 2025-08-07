@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     io::{BufRead, Write},
-    path::{Path, PathBuf},
+    path::Path,
     process::Stdio,
 };
 
@@ -132,14 +132,6 @@ pub struct WaydroidGameHandler {
 }
 
 impl WaydroidGameHandler {
-    pub fn get_save_path(pkg: &str) -> PathBuf {
-        PathBuf::from("/data")
-            .join("data")
-            .join(pkg)
-            .join("files")
-            .join("SAVE_DATA")
-    }
-
     pub fn new() -> Self {
         Self::default()
     }
@@ -151,14 +143,12 @@ impl WaydroidGameHandler {
 
 impl ExternalSaveSource for WaydroidGameHandler {
     type Error = WaydroidError;
-    async fn write_save(&mut self, data: Vec<u8>, pkg: &str) -> Result<(), Self::Error> {
-        self.handler
-            .push_file(data, &Self::get_save_path(pkg))
-            .await
+    async fn write_path(&mut self, data: Vec<u8>, path: &Path) -> Result<(), Self::Error> {
+        self.handler.push_file(data, path).await
     }
 
-    async fn read_save(&mut self, pkg: &str) -> Result<Vec<u8>, Self::Error> {
-        self.handler.pull_file(&Self::get_save_path(pkg)).await
+    async fn read_path(&mut self, path: &Path) -> Result<Vec<u8>, Self::Error> {
+        self.handler.pull_file(path).await
     }
 
     async fn close_game(&mut self, pkg: &str) -> Result<(), Self::Error> {

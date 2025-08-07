@@ -1,6 +1,8 @@
 use reqwest::header::{CONTENT_TYPE, HeaderValue};
 
-use crate::{country_code::CountryCode, game_version::GameVersion, save::AccountInfo};
+use crate::{
+    country_code::CountryCode, game_version::GameVersion, network::account_info::GameAccountInfo,
+};
 
 const SAVE_URL: &str = "https://nyanko-save.ponosgames.com";
 
@@ -143,7 +145,7 @@ pub fn new_client() -> Result<reqwest::Client, reqwest::Error> {
 #[derive(Debug, Clone)]
 pub struct FromCodesResponse {
     pub save_data: Vec<u8>,
-    pub account_info: Option<AccountInfo>,
+    pub account_info: GameAccountInfo,
     pub password_refresh_token: Option<String>,
 }
 
@@ -188,10 +190,10 @@ pub async fn from_codes(
     let body = resp.bytes().await.map_err(FromCodesError::Body)?;
     Ok(FromCodesResponse {
         save_data: body.into(),
-        account_info: Some(AccountInfo {
+        account_info: GameAccountInfo {
             password,
             auth_token: None,
-        }),
+        },
         password_refresh_token,
     })
 }

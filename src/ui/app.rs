@@ -12,8 +12,7 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    network::password::TransferCodes,
-    save::SaveFile,
+    network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
         asset::AssetManager,
         catfood::{CatfoodView, XPView},
@@ -112,7 +111,7 @@ impl UIOption {
     pub fn update_basic_item(
         &mut self,
         msg: BasicItemMessage,
-        save_file: &mut SaveFile,
+        save_file: &mut SaveFileAccount,
         locale_manager: &LocaleManager,
     ) -> Task<Message> {
         match self {
@@ -323,7 +322,7 @@ impl ApplicationState {
         };
 
         if let Some(path) = filepath {
-            let save = SaveFile::load_from_path_detect_cc(&path)?;
+            let save = SaveFileAccount::load_from_path(&path, None)?;
             app.save_file = Some(LoadedSaveFile {
                 source: super::loadsave::SaveSource::Path(path),
                 save_file: save,

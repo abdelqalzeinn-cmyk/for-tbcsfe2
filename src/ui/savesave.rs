@@ -8,8 +8,10 @@ use iced::{
 
 use crate::{
     country_code::CountryCode,
-    network::password::{NewAccountInfo, TransferCodes, UploadInfo, create_and_upload},
-    save::SaveFile,
+    network::{
+        account_info::{EditorAccountInfo, SaveFileAccount},
+        password::{NewAccountInfo, TransferCodes, UploadInfo, create_and_upload, upload_save},
+    },
     ui::{
         app::Message,
         helper::labeled_box,
@@ -40,7 +42,7 @@ impl SaveSave {
     pub fn update(
         &mut self,
         message: SaveSaveMsg,
-        save: &mut SaveFile,
+        save: &mut SaveFileAccount,
         locale_manager: &LocaleManager,
     ) -> Task<Message> {
         match message {
@@ -72,13 +74,13 @@ impl SaveSave {
             SaveSaveMsg::OnSaveInput(p) => self.save_path = p,
             SaveSaveMsg::UploadSave => {
                 self.is_transferring = true;
-                let save_data = save.write_with_hash_no_zip();
-                let save_info = UploadInfo::from_save(save);
+                let save_data = save.save_file.write_with_hash();
+                let save_info = UploadInfo::from_save(&save.save_file);
                 match save_data {
                     Ok(save_data) => {
                         return Task::done(Message::Notif("upload-start".localize(locale_manager)))
                             .chain(Task::perform(
-                                create_and_upload(save_data, save_info),
+                                upload_save(save_data, save_info, save.account_info.clone()),
                                 |r| match r {
                                     Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes)),
                                     Err(e) => Message::Error(e.to_string()),
@@ -93,10 +95,14 @@ impl SaveSave {
                 }
             }
             SaveSaveMsg::Uploaded((codes, new_account_info)) => {
-                save.save.set_inquiry_code(new_account_info.inquiry_code);
-                save.save
+                save.save_file
+                    .save
+                    .set_inquiry_code(new_account_info.inquiry_code);
+                save.save_file
+                    .save
                     .set_password_refresh_token(new_account_info.password_refresh_token);
-                save.account_info = Some(new_account_info.account_info);
+                save.account_info =
+                    EditorAccountInfo::new(new_account_info.account_info, Vec::new());
                 self.codes = Some(codes.clone());
 
                 return Task::done(Message::Notif(
@@ -255,10 +261,13 @@ impl SaveSave {
             SaveSource::Data => {}
             SaveSource::Adb(_) => {}
         }
-        self.cc = save_file.save_file.gvcc.cc;
+        self.cc = save_file.save_file.save_file.gvcc.cc;
     }
 
-    fn save_save_to_path(&self, save: &SaveFile) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    fn save_save_to_path(
+        &self,
+        save: &SaveFileAccount,
+    ) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let path = PathBuf::from(&self.save_path);
         save.write_to_path(path.as_path())?;
 
