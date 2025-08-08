@@ -9,8 +9,8 @@ use iced::{
 use crate::{
     country_code::CountryCode,
     network::{
-        account_info::{EditorAccountInfo, SaveFileAccount},
-        password::{NewAccountInfo, TransferCodes, UploadInfo, upload_save},
+        account_info::SaveFileAccount,
+        password::{TransferCodes, UploadInfo, upload_save},
     },
     ui::{
         adb::{AdbDirection, AdbMessage, AdbView},

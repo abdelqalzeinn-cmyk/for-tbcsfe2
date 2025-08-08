@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
-use adb_client::{DeviceShort, DeviceState};
-use iced::{Element, Length, Task, alignment::Vertical, widget::container::bordered_box};
+use adb_client::DeviceShort;
+use iced::{Element, Task};
 
 use crate::{
     adb::{adb_handler::AdbGameHandler, waydroid_handler::WaydroidGameHandler},
@@ -35,7 +33,7 @@ pub enum AdbCommand {
 }
 
 #[derive(Debug, Clone)]
-struct DeviceShortEq {
+pub struct DeviceShortEq {
     dev: DeviceShort,
 }
 
@@ -80,26 +78,6 @@ impl AdbView {
                 self.selected_device.as_ref(),
                 |m| AdbMessage::SelectedDevice(m.clone()),
             );
-            // let state_str = dev.state.to_string();
-            // let button: Element<'_, AdbMessage> =
-            //     iced::widget::button(iced::widget::text(&dev.identifier))
-            //         .on_press(AdbMessage::SelectedDevice(dev.clone()))
-            //         .into();
-            // let row = iced::widget::row([
-            //     button,
-            //     iced::widget::text(state_str)
-            //         .align_y(Vertical::Center)
-            //         .height(Length::Fill)
-            //         .into(),
-            // ])
-            // .height(Length::Shrink)
-            // .spacing(10);
-            // devcol.push(
-            //     iced::widget::container(row)
-            //         .padding(10)
-            //         .style(bordered_box)
-            //         .into(),
-            // );
             devcol.push(radio.into());
         }
         let device_box = labeled_box(
@@ -110,19 +88,7 @@ impl AdbView {
 
         let mut cols = vec![device_box];
 
-        if let Some(ref sel) = self.selected_device {
-            // let sel_box = labeled_box(
-            //     theme,
-            //     "selected-device".localize(locale_manager),
-            //     iced::widget::row([
-            //         iced::widget::text(&sel.identifier).into(),
-            //         iced::widget::text(sel.state.to_string()).into(),
-            //     ])
-            //     .spacing(10)
-            //     .into(),
-            // );
-            // cols.push(sel_box);
-
+        if self.selected_device.is_some() {
             let label = match self.direction {
                 AdbDirection::LoadSave => "pull-from",
                 AdbDirection::SaveSave(_) => "push-to",
