@@ -10,9 +10,10 @@ use crate::{
     country_code::CountryCode,
     network::{
         account_info::{EditorAccountInfo, SaveFileAccount},
-        password::{NewAccountInfo, TransferCodes, UploadInfo, create_and_upload, upload_save},
+        password::{NewAccountInfo, TransferCodes, UploadInfo, upload_save},
     },
     ui::{
+        adb::{AdbDirection, AdbMessage, AdbView},
         app::Message,
         helper::labeled_box,
         loadsave::{LoadedSaveFile, LocalizedCC, SaveSource},
@@ -26,16 +27,32 @@ pub enum SaveSaveMsg {
     SavePath,
     OnSaveInput(String),
     UploadSave,
-    Uploaded((TransferCodes, NewAccountInfo)),
+    Uploaded(TransferCodes, SaveFileAccount),
     DoneTransfer,
+    Adb(crate::ui::adb::AdbMessage),
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SaveSave {
     pub save_path: String,
     pub cc: CountryCode,
     pub is_transferring: bool,
     pub codes: Option<TransferCodes>,
+    pub adb: AdbView,
+    pub save_data: Vec<u8>,
+}
+
+impl Default for SaveSave {
+    fn default() -> Self {
+        Self {
+            save_path: "".to_string(),
+            cc: CountryCode::En,
+            is_transferring: false,
+            codes: None,
+            adb: AdbView::new(true, super::adb::AdbDirection::LoadSave),
+            save_data: Vec::new(),
+        }
+    }
 }
 
 impl SaveSave {
@@ -47,63 +64,43 @@ impl SaveSave {
     ) -> Task<Message> {
         match message {
             SaveSaveMsg::SaveSystem => {
-                let save_data = save.write_to_zip_data();
-                match save_data {
-                    Ok(d) => {
-                        let save_save = "saved-save".localize(locale_manager);
-                        let no_save_save = "no-save-save".localize(locale_manager);
-                        return Task::perform(Self::save_system(d), |r| match r {
-                            Ok(o) => {
-                                if o.is_some() {
-                                    Message::Notif(save_save)
-                                } else {
-                                    Message::Notif(no_save_save)
-                                }
-                            }
-
-                            Err(e) => Message::Error(e.to_string()),
-                        });
+                let save_save = "saved-save".localize(locale_manager);
+                let no_save_save = "no-save-save".localize(locale_manager);
+                return Task::perform(Self::save_system(self.save_data.to_vec()), |r| match r {
+                    Ok(o) => {
+                        if o.is_some() {
+                            Message::Notif(save_save)
+                        } else {
+                            Message::Notif(no_save_save)
+                        }
                     }
-                    Err(e) => return Task::done(Message::Error(e.to_string())),
-                }
+
+                    Err(e) => Message::Error(e.to_string()),
+                });
             }
-            SaveSaveMsg::SavePath => match self.save_save_to_path(save) {
+            SaveSaveMsg::SavePath => match self.save_save_to_path() {
                 Ok(s) => return Task::done(Message::SavedSave(s)),
                 Err(e) => return Task::done(Message::Error(e.to_string())),
             },
             SaveSaveMsg::OnSaveInput(p) => self.save_path = p,
             SaveSaveMsg::UploadSave => {
                 self.is_transferring = true;
-                let save_data = save.save_file.write_with_hash();
                 let save_info = UploadInfo::from_save(&save.save_file);
-                match save_data {
-                    Ok(save_data) => {
-                        return Task::done(Message::Notif("upload-start".localize(locale_manager)))
-                            .chain(Task::perform(
-                                upload_save(save_data, save_info, save.account_info.clone()),
-                                |r| match r {
-                                    Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes)),
-                                    Err(e) => Message::Error(e.to_string()),
-                                },
-                            ))
-                            .chain(Task::done(Message::SaveSave(SaveSaveMsg::DoneTransfer)));
-                    }
-                    Err(e) => {
-                        return Task::done(Message::Error(e.to_string()))
-                            .chain(Task::done(Message::SaveSave(SaveSaveMsg::DoneTransfer)));
-                    }
-                }
+                let save_c = save.clone();
+                let account_info = save.account_info.clone();
+                return Task::done(Message::Notif("upload-start".localize(locale_manager)))
+                    .chain(Task::perform(
+                        async move { upload_save(save_c, save_info, account_info).await },
+                        |r| match r {
+                            Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes.0, codes.1)),
+                            Err(e) => Message::Error(e.to_string()),
+                        },
+                    ))
+                    .chain(Task::done(Message::SaveSave(SaveSaveMsg::DoneTransfer)));
             }
-            SaveSaveMsg::Uploaded((codes, new_account_info)) => {
-                save.save_file
-                    .save
-                    .set_inquiry_code(new_account_info.inquiry_code);
-                save.save_file
-                    .save
-                    .set_password_refresh_token(new_account_info.password_refresh_token);
-                save.account_info =
-                    EditorAccountInfo::new(new_account_info.account_info, Vec::new());
+            SaveSaveMsg::Uploaded(codes, save_file_account) => {
                 self.codes = Some(codes.clone());
+                *save = save_file_account;
 
                 return Task::done(Message::Notif(
                     "successfully-uploaded".localize(locale_manager),
@@ -111,6 +108,31 @@ impl SaveSave {
                 .chain(Task::done(Message::Codes(codes)));
             }
             SaveSaveMsg::DoneTransfer => self.is_transferring = false,
+            SaveSaveMsg::Adb(adb_message) => {
+                if let AdbMessage::SaveSave(_) = adb_message {
+                    let iq = save.save_file.save.get_inquiry_code();
+                    let mt = Task::done(Message::Notif("pushed-adb".localize(locale_manager)));
+                    if let Some(iq) = iq {
+                        return mt.chain(Task::done(Message::SaveSave(SaveSaveMsg::Adb(
+                            AdbMessage::PushAccountInfo(
+                                iq.to_string(),
+                                save.account_info.account_info.clone(),
+                            ),
+                        ))));
+                    }
+                    return mt;
+                }
+                if matches!(adb_message, AdbMessage::PushedAccountInfo) {
+                    return Task::done(Message::Notif("pushed-account".localize(locale_manager)));
+                }
+                if let AdbMessage::ReranGame(_) = adb_message {
+                    return Task::done(Message::Notif("reran-game".localize(locale_manager)));
+                }
+                return self
+                    .adb
+                    .update(adb_message, locale_manager)
+                    .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m)));
+            }
         };
         Task::none()
     }
@@ -129,6 +151,11 @@ impl SaveSave {
 
             col.push(save_codes_layout);
         }
+        col.push(
+            self.adb
+                .view(theme, locale_manager)
+                .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m))),
+        );
         iced::widget::container(iced::widget::column(col).spacing(10)).into()
     }
 
@@ -254,7 +281,7 @@ impl SaveSave {
         save_path_layout
     }
 
-    pub fn init(&mut self, save_file: &LoadedSaveFile) {
+    pub fn init(&mut self, save_file: &LoadedSaveFile) -> Task<Message> {
         match &save_file.source {
             SaveSource::Path(path_buf) => self.save_path = path_buf.to_string_lossy().to_string(),
             SaveSource::TransferCodes => {}
@@ -262,14 +289,27 @@ impl SaveSave {
             SaveSource::Adb(_) => {}
         }
         self.cc = save_file.save_file.save_file.gvcc.cc;
+        let save_data = save_file.save_file.write_to_zip_data();
+        match save_data {
+            Ok(s) => {
+                self.save_data = s.clone();
+
+                match save_file.save_file.save_file.write_with_hash() {
+                    Ok(d) => self.adb.direction = AdbDirection::SaveSave(d),
+                    Err(e) => return Task::done(Message::Error(e.to_string())),
+                }
+            }
+            Err(e) => return Task::done(Message::Error(e.to_string())),
+        }
+        return self
+            .adb
+            .init()
+            .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m)));
     }
 
-    fn save_save_to_path(
-        &self,
-        save: &SaveFileAccount,
-    ) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    fn save_save_to_path(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let path = PathBuf::from(&self.save_path);
-        save.write_to_path(path.as_path())?;
+        std::fs::write(&path, &self.save_data)?;
 
         Ok(path)
     }

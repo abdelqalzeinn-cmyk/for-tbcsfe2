@@ -1,7 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
-pub trait ExternalSaveSource {
-    type Error;
+pub trait ExternalSaveSource: Send + 'static {
+    type Error: Send + Display + 'static;
 
     fn get_save_path(pkg: &str) -> PathBuf {
         PathBuf::from("/data")
@@ -22,10 +25,7 @@ pub trait ExternalSaveSource {
         &mut self,
         data: Vec<u8>,
         pkg: &str,
-    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send
-    where
-        Self: Send,
-    {
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async {
             let path = Self::get_save_path(pkg);
 
@@ -35,10 +35,7 @@ pub trait ExternalSaveSource {
     fn read_save(
         &mut self,
         pkg: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send
-    where
-        Self: Send,
-    {
+    ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send {
         async {
             let path = Self::get_save_path(pkg);
 
@@ -50,12 +47,20 @@ pub trait ExternalSaveSource {
         &mut self,
         pkg: &str,
         inquiry_code: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send
-    where
-        Self: Send,
-    {
+    ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send {
         async {
             self.read_path(&Self::get_account_info_path(pkg, inquiry_code))
+                .await
+        }
+    }
+    fn write_account_info(
+        &mut self,
+        pkg: &str,
+        inquiry_code: &str,
+        info: Vec<u8>,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
+        async {
+            self.write_path(info, &Self::get_account_info_path(pkg, inquiry_code))
                 .await
         }
     }
@@ -83,10 +88,7 @@ pub trait ExternalSaveSource {
     fn rerun_game(
         &mut self,
         pkg: &str,
-    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send
-    where
-        Self: Send,
-    {
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async {
             self.close_game(pkg).await?;
             self.run_game(pkg).await?;

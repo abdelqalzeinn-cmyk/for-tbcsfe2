@@ -43,7 +43,7 @@ pub enum UIOption {
 }
 
 impl UIOption {
-    pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) {
+    pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) -> Task<Message> {
         if let Some(save_file) = save_file {
             macro_rules! init {
                 [$($var:ident),+] => {
@@ -55,9 +55,13 @@ impl UIOption {
             }
             init![Catfood, Xp, MainStory];
             if let UIOption::SaveSave(save_save) = self {
-                save_save.init(save_file)
+                return save_save.init(save_file);
             }
         }
+        if let UIOption::LoadSave(load_save) = self {
+            return load_save.init();
+        }
+        return Task::none();
     }
     pub fn base_matches(&self, other: &Self) -> bool {
         macro_rules! matches_opt {
@@ -150,17 +154,25 @@ impl Display for &UIOption {
 impl ApplicationState {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Init => {}
+            Message::Init => {
+                if let Some(ref mut sel) = self.selected_screen {
+                    return sel.init(None);
+                }
+            }
             Message::LoadSave(msg) => {
                 if let Some(UIOption::LoadSave(ref mut selected)) = self.selected_screen {
                     return selected.update(msg, &self.locale_manager);
                 }
             }
             Message::ChangePane(mut uioption) => {
-                uioption.init(self.save_file.as_ref());
+                let m = uioption.init(self.save_file.as_ref());
                 self.selected_screen = Some(uioption);
+                return m;
             }
-            Message::LoadedSave(save_file) => self.save_file = Some(*save_file),
+            Message::LoadedSave(save_file) => {
+                self.save_file = Some(*save_file);
+                return Task::done(Message::Notif("loaded-save".localize(&self.locale_manager)));
+            }
             Message::Error(e) => self.current_error = Some(e),
             Message::BasicItem(msg) => {
                 if let Some(ref mut save_file) = self.save_file
@@ -330,7 +342,7 @@ impl ApplicationState {
             });
         }
 
-        Ok((app, Task::none()))
+        Ok((app, Task::done(Message::Init)))
     }
 }
 

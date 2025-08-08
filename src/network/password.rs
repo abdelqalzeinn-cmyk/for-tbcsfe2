@@ -2,7 +2,7 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
 use crate::{
     network::{
-        account_info::{EditorAccountInfo, GameAccountInfo},
+        account_info::{EditorAccountInfo, GameAccountInfo, SaveFileAccount},
         get_unix_timestamp,
         signature::{sign_v1, sign_v2},
         transfer::{ClientInfo, gen_nonce, new_client},
@@ -437,10 +437,10 @@ impl AccountState {
 }
 
 pub async fn upload_save(
-    save_data: Vec<u8>,
+    mut save_file: SaveFileAccount,
     info: UploadInfo,
     account_info: EditorAccountInfo,
-) -> Result<(TransferCodes, NewAccountInfo), PasswordError> {
+) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
     let mut state = AccountState {
         inquiry_code: info.inquiry_code,
         account_info: account_info.account_info,
@@ -461,6 +461,22 @@ pub async fn upload_save(
 
     let save_key = get_save_key(&auth_token).await?.into_payload()?;
 
+    let prt = state.try_get_password_refresh_token().await?;
+    let password = state.try_get_password().await?;
+
+    save_file
+        .save_file
+        .save
+        .set_inquiry_code(inquiry_code.clone());
+    save_file.save_file.save.set_password_refresh_token(prt);
+    save_file.account_info.account_info.password = Some(password);
+    save_file.account_info.account_info.auth_token = Some(auth_token.clone());
+
+    let save_data = save_file
+        .save_file
+        .write_with_hash()
+        .map_err(PasswordError::SerializeSave)?;
+
     let codes = upload_save_data(
         &auth_token,
         save_key,
@@ -474,25 +490,13 @@ pub async fn upload_save(
     .await?
     .into_payload()?;
 
-    let prt = state.try_get_password_refresh_token().await?;
-    let password = state.try_get_password().await?;
-
-    let account_info = NewAccountInfo {
-        password_refresh_token: prt,
-        inquiry_code,
-        account_info: GameAccountInfo {
-            password: Some(password),
-            auth_token: Some(auth_token),
-        },
-    };
-
-    Ok((codes, account_info))
+    Ok((codes, save_file))
 }
 
 pub async fn create_and_upload(
-    save_data: Vec<u8>,
+    save_data: SaveFileAccount,
     info: UploadInfo,
-) -> Result<(TransferCodes, NewAccountInfo), PasswordError> {
+) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
     upload_save(save_data, info, EditorAccountInfo::default()).await
 }
 

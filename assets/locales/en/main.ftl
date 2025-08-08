@@ -66,3 +66,16 @@ refresh = Refresh
 selected-device = Selected Device
 packages = Game Packages
 devices = Devices
+
+pull-from = Pull From
+adb-push = Adb Push
+push-to = Push To
+rerun-game = Rerun Game
+
+pushed-adb = Pushed save to adb device
+pushed-account = Pushed save account to adb device
+
+loaded-save = Loaded Save File
+
+pull = Pull
+push = Push

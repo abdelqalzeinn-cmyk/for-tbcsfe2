@@ -92,6 +92,9 @@ impl GameAccountInfo {
     pub fn from_data(data: &[u8]) -> Result<Self, AccountInfoError> {
         Self::from_reader(&mut std::io::Cursor::new(data))
     }
+    pub fn to_data(&self) -> Result<Vec<u8>, AccountInfoError> {
+        Ok(self.to_string()?.into_bytes())
+    }
 
     pub fn from_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, AccountInfoError> {
         let mut str = "".to_string();

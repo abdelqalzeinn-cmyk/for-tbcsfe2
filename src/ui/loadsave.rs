@@ -145,7 +145,7 @@ impl Default for LoadSave {
             transfer_code: String::default(),
             confirmation_code: String::default(),
             selected_cc: Some(CountryCode::En),
-            adb: AdbView::new(true),
+            adb: AdbView::new(true, super::adb::AdbDirection::LoadSave), // TODO: true from config,
         }
     }
 }
@@ -466,5 +466,11 @@ impl LoadSave {
             "load-save-from-path".localize(locale_manager),
             select_save_layout.into(),
         )
+    }
+
+    pub fn init(&mut self) -> Task<Message> {
+        self.adb
+            .init()
+            .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m)))
     }
 }
