@@ -73,12 +73,19 @@ impl AdbView {
         );
         for dev in &self.available_devices {
             let radio = iced::widget::radio(
-                dev.dev.identifier.to_string(),
+                format!("{} - {}", dev.dev.identifier, dev.dev.state),
                 dev,
                 self.selected_device.as_ref(),
                 |m| AdbMessage::SelectedDevice(m.clone()),
             );
             devcol.push(radio.into());
+        }
+        if self.available_devices.is_empty() {
+            devcol.push(
+                iced::widget::text("no-adb-devices".localize(locale_manager))
+                    .color(theme.palette().danger)
+                    .into(),
+            )
         }
         let device_box = labeled_box(
             theme,

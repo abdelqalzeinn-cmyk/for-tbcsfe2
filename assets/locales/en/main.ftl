@@ -79,3 +79,5 @@ loaded-save = Loaded Save File
 
 pull = Pull
 push = Push
+
+no-adb-devices = No ADB Devices Found
