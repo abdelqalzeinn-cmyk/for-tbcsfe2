@@ -1,8 +1,13 @@
+use std::hash::Hash;
+
 use adb_client::DeviceShort;
-use iced::{Element, Task};
+use iced::{Element, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::{
-    adb::{adb_handler::AdbGameHandler, waydroid_handler::WaydroidGameHandler},
+    adb::{
+        adb_handler::{AdbGameHandler, find_adb_path, is_adb_installed},
+        waydroid_handler::{WaydroidGameHandler, is_waydroid_installed},
+    },
     ext_source::ExternalSaveSource,
     network::account_info::GameAccountInfo,
     save::SaveFile,
@@ -15,11 +20,13 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct AdbView {
     pub available_devices: Vec<DeviceShortEq>,
+    pub waydroid_enabled: bool,
     pub selected_device: Option<DeviceShortEq>,
     pub available_pkgs: Vec<String>,
     pub selected_pkg: Option<String>,
-    pub is_waydroid: bool,
     pub direction: AdbDirection,
+    pub waydroid_installed: bool,
+    pub adb_installed: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -49,15 +56,24 @@ impl PartialEq for DeviceShortEq {
 
 impl Eq for DeviceShortEq {}
 
+impl Hash for DeviceShortEq {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write(self.dev.identifier.as_bytes());
+        state.write(self.dev.state.to_string().as_bytes());
+    }
+}
+
 impl AdbView {
-    pub fn new(is_waydroid: bool, direction: AdbDirection) -> Self {
+    pub fn new(direction: AdbDirection) -> Self {
         Self {
             available_devices: Vec::new(),
             selected_device: None,
             available_pkgs: Vec::new(),
             selected_pkg: None,
-            is_waydroid,
             direction,
+            waydroid_enabled: false,
+            waydroid_installed: false,
+            adb_installed: None,
         }
     }
     pub fn view(
@@ -66,19 +82,26 @@ impl AdbView {
         locale_manager: &LocaleManager,
     ) -> Element<'_, AdbMessage> {
         let mut devcol = Vec::new();
-        devcol.push(
+        let refresh_btn =
             iced::widget::button(iced::widget::text("refresh".localize(locale_manager)))
                 .on_press(AdbMessage::FetchDevices)
-                .into(),
-        );
+                .into();
+        devcol.push(refresh_btn);
         for dev in &self.available_devices {
-            let radio = iced::widget::radio(
+            let radio: Element<'_, AdbMessage> = iced::widget::radio(
                 format!("{} - {}", dev.dev.identifier, dev.dev.state),
                 dev,
                 self.selected_device.as_ref(),
                 |m| AdbMessage::SelectedDevice(m.clone()),
+            )
+            .into();
+            devcol.push(
+                iced::widget::container(radio)
+                    .align_y(Vertical::Center)
+                    .style(bordered_box)
+                    .padding(10)
+                    .into(),
             );
-            devcol.push(radio.into());
         }
         if self.available_devices.is_empty() {
             devcol.push(
@@ -86,6 +109,18 @@ impl AdbView {
                     .color(theme.palette().danger)
                     .into(),
             )
+        }
+        if self.waydroid_installed {
+            let switch: Element<'_, AdbMessage> = iced::widget::toggler(self.waydroid_enabled)
+                .on_toggle(|t| AdbMessage::ToggleWaydroid(t))
+                .label("use-waydroid".localize(locale_manager))
+                .into();
+            devcol.push(
+                iced::widget::container(switch)
+                    .style(bordered_box)
+                    .padding(10)
+                    .into(),
+            );
         }
         let device_box = labeled_box(
             theme,
@@ -111,22 +146,30 @@ impl AdbView {
 
             cols.push(
                 iced::widget::button(iced::widget::text(btn_txt))
-                    .on_press_maybe(if let Some(ref sel) = self.selected_pkg {
-                        Some(AdbMessage::PushOrPull(sel.to_string()))
-                    } else {
-                        None
-                    })
+                    .on_press_maybe(
+                        if let Some(ref sel) = self.selected_pkg
+                            && !self.available_pkgs.is_empty()
+                        {
+                            Some(AdbMessage::PushOrPull(sel.to_string()))
+                        } else {
+                            None
+                        },
+                    )
                     .into(),
             );
 
             if let AdbDirection::SaveSave(_) = self.direction {
                 cols.push(
                     iced::widget::button(iced::widget::text("rerun-game".localize(locale_manager)))
-                        .on_press_maybe(if let Some(ref sel) = self.selected_pkg {
-                            Some(AdbMessage::Rerun(sel.to_string()))
-                        } else {
-                            None
-                        })
+                        .on_press_maybe(
+                            if let Some(ref sel) = self.selected_pkg
+                                && !self.available_pkgs.is_empty()
+                            {
+                                Some(AdbMessage::Rerun(sel.to_string()))
+                            } else {
+                                None
+                            },
+                        )
                         .into(),
                 );
             }
@@ -177,33 +220,43 @@ impl AdbView {
             AdbMessage::AvailableDevices(device_shorts) => {
                 self.available_devices = device_shorts;
 
-                if let Some(first) = self.available_devices.first() {
+                if let Some(first) = self.available_devices.first()
+                    && self.selected_device.is_none()
+                {
                     return iced::Task::done(AdbMessage::SelectedDevice(first.clone()));
                 }
             }
+            AdbMessage::CheckWaydroid => {
+                return iced::Task::perform(is_waydroid_installed(), AdbMessage::WaydroidInstalled);
+            }
+            AdbMessage::WaydroidInstalled(installed) => {
+                self.waydroid_installed = installed;
+            }
             AdbMessage::FetchDevices => {
-                let mut manager = AdbGameHandler::new();
-                let devices = manager.get_devices();
-
-                match devices {
-                    Ok(d) => {
-                        return iced::Task::done(AdbMessage::AvailableDevices(
-                            d.into_iter().map(|v| DeviceShortEq { dev: v }).collect(),
-                        ));
-                    }
-                    Err(e) => return iced::Task::done(AdbMessage::Error(e.to_string())),
-                }
+                return iced::Task::perform(AdbGameHandler::get_devices(), |r| match r {
+                    Ok(d) => AdbMessage::GotDevices(d),
+                    Err(e) => AdbMessage::Error(e.to_string()),
+                });
+            }
+            AdbMessage::GotDevices(devices) => {
+                return iced::Task::done(AdbMessage::AvailableDevices(
+                    devices
+                        .into_iter()
+                        .map(|v| DeviceShortEq { dev: v })
+                        .collect(),
+                ));
             }
             AdbMessage::Error(_) => panic!("error must be handled further up!"),
             AdbMessage::LoadSave(..) => panic!("load save must be handled further up!"),
             AdbMessage::SelectedDevice(device_short) => {
                 self.selected_device = Some(device_short.clone());
+                self.available_pkgs = Vec::new();
 
-                if self.is_waydroid {
+                if self.waydroid_enabled {
                     return Task::perform(
                         async move {
                             let mut manager = WaydroidGameHandler::new();
-                            manager.set_selected_device(device_short.clone().dev);
+                            manager.set_selected_device(device_short.dev);
                             manager.get_all_game_packages().await
                         },
                         |r| match r {
@@ -215,7 +268,7 @@ impl AdbView {
                     return Task::perform(
                         async move {
                             let mut manager = AdbGameHandler::new();
-                            manager.set_selected_device(device_short.clone().dev);
+                            manager.set_selected_device(device_short.dev);
                             manager.get_all_game_packages().await
                         },
                         |r| match r {
@@ -228,14 +281,16 @@ impl AdbView {
             AdbMessage::AvailablePackages(items) => {
                 self.available_pkgs = items;
 
-                if let Some(first) = self.available_pkgs.first() {
+                if let Some(first) = self.available_pkgs.first()
+                    && self.selected_pkg.is_none()
+                {
                     return Task::done(AdbMessage::SelectPkg(first.to_string()));
                 }
             }
             AdbMessage::PushOrPull(pkg) => {
                 if let Some(ref sel) = self.selected_device {
                     self.selected_pkg = Some(pkg.clone());
-                    if self.is_waydroid {
+                    if self.waydroid_enabled {
                         let mut manager = WaydroidGameHandler::new();
                         manager.set_selected_device(sel.clone().dev);
 
@@ -251,7 +306,7 @@ impl AdbView {
             AdbMessage::PullAccountInfo(s, inquiry_code) => {
                 let selected_device = self.selected_device.clone();
                 let selected_pkg = self.selected_pkg.clone();
-                let is_waydroid = self.is_waydroid;
+                let is_waydroid = self.waydroid_enabled;
                 return Task::perform(
                     Self::pull_account_info(
                         inquiry_code,
@@ -268,7 +323,7 @@ impl AdbView {
             AdbMessage::PushAccountInfo(inquiry_code, info) => {
                 let selected_device = self.selected_device.clone();
                 let selected_pkg = self.selected_pkg.clone();
-                let is_waydroid = self.is_waydroid;
+                let is_waydroid = self.waydroid_enabled;
                 return Task::perform(
                     Self::push_account_info(
                         inquiry_code,
@@ -293,7 +348,7 @@ impl AdbView {
             AdbMessage::Rerun(pkg) => {
                 if let Some(ref sel) = self.selected_device {
                     self.selected_pkg = Some(pkg.clone());
-                    if self.is_waydroid {
+                    if self.waydroid_enabled {
                         let mut manager = WaydroidGameHandler::new();
                         manager.set_selected_device(sel.clone().dev);
 
@@ -308,6 +363,19 @@ impl AdbView {
             }
             AdbMessage::ReranGame(_) => panic!("reran game must be handled further up!"),
             AdbMessage::SelectPkg(p) => self.selected_pkg = Some(p),
+            AdbMessage::ToggleWaydroid(toggle) => {
+                self.waydroid_enabled = toggle;
+                if let Some(ref sel) = self.selected_device {
+                    return iced::Task::done(AdbMessage::SelectedDevice(sel.clone()));
+                }
+            }
+            AdbMessage::CheckAdb => {
+                // TODO: adb path config
+                return Task::perform(is_adb_installed(find_adb_path()), AdbMessage::AdbInstalled);
+            }
+            AdbMessage::AdbInstalled(installed) => {
+                self.adb_installed = Some(installed);
+            }
         };
 
         iced::Task::none()
@@ -388,7 +456,9 @@ impl AdbView {
     }
 
     pub fn init(&mut self) -> Task<AdbMessage> {
-        return Task::done(AdbMessage::FetchDevices);
+        return Task::done(AdbMessage::CheckAdb)
+            .chain(Task::done(AdbMessage::CheckWaydroid))
+            .chain(Task::done(AdbMessage::FetchDevices));
     }
 }
 
@@ -439,4 +509,10 @@ pub enum AdbMessage {
     Rerun(String),
     ReranGame(String),
     SelectPkg(String),
+    ToggleWaydroid(bool),
+    GotDevices(Vec<DeviceShort>),
+    WaydroidInstalled(bool),
+    CheckWaydroid,
+    CheckAdb,
+    AdbInstalled(bool),
 }

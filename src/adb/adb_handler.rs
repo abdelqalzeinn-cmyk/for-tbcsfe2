@@ -1,9 +1,10 @@
 use std::{
     io::BufRead,
+    net::{Ipv4Addr, SocketAddrV4},
     path::{Path, PathBuf},
 };
 
-use adb_client::{ADBDeviceExt, DeviceShort};
+use adb_client::{ADBDeviceExt, ADBServer, DeviceShort};
 
 use crate::ext_source::ExternalSaveSource;
 
@@ -13,13 +14,55 @@ pub struct AdbHandler {
     pub selected_device: Option<DeviceShort>,
 }
 
+pub fn find_adb_path() -> Option<PathBuf> {
+    let possible_paths: Vec<PathBuf> = vec![
+        Path::new("/opt")
+            .join("android-sdk")
+            .join("platform-tools")
+            .join("adb"),
+    ];
+    for path in possible_paths {
+        if std::fs::exists(&path).ok()? {
+            return Some(path);
+        }
+    }
+    None
+}
+
+pub async fn is_adb_installed(adb_path: Option<PathBuf>) -> bool {
+    if cfg!(feature = "wasm") {
+        false
+    } else {
+        std::thread::spawn(|| {
+            std::process::Command::new(adb_path.unwrap_or(PathBuf::from("adb")))
+                .arg("version")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success())
+        })
+        .join()
+        .unwrap_or(false)
+    }
+}
+
 impl AdbHandler {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(adb_path: Option<String>) -> Self {
+        Self {
+            server: ADBServer::new_from_path(
+                SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 5037),
+                adb_path,
+            ),
+            selected_device: None,
+        }
     }
 
-    pub fn get_devices(&mut self) -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
-        self.server.devices()
+    pub async fn get_devices() -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
+        std::thread::spawn(move || adb_client::ADBServer::default().devices())
+            .join()
+            .map_err(|_| {
+                adb_client::RustADBError::IOError(std::io::Error::other("failed to join"))
+            })?
     }
 
     pub fn with_device(mut self, device: DeviceShort) -> Self {
@@ -152,8 +195,8 @@ impl AdbGameHandler {
         Self::default()
     }
 
-    pub fn get_devices(&mut self) -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
-        self.handler.get_devices()
+    pub async fn get_devices() -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
+        AdbHandler::get_devices().await
     }
 
     pub fn set_selected_device(&mut self, device: DeviceShort) {

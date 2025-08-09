@@ -17,6 +17,23 @@ struct WaydroidHandler {
     adb: AdbHandler,
 }
 
+pub async fn is_waydroid_installed() -> bool {
+    if cfg!(feature = "wasm") {
+        false
+    } else {
+        std::thread::spawn(|| {
+            std::process::Command::new("waydroid")
+                .arg("--version")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success())
+        })
+        .join()
+        .unwrap_or(false)
+    }
+}
+
 #[derive(Debug)]
 pub enum WaydroidError {
     Io(std::io::Error),

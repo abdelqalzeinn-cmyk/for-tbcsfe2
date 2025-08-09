@@ -18,8 +18,8 @@ pub struct MainStory {
     clear_count_chapters: String,
 }
 
-impl Default for MainStory {
-    fn default() -> Self {
+impl MainStory {
+    pub async fn new() -> Self {
         Self {
             selected_chapters: [false; 9],
             clear_count_chapters: 1.to_string(),

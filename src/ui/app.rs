@@ -42,6 +42,89 @@ pub enum UIOption {
     MainStory(MainStory),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UIType {
+    LoadSave,
+    SaveSave,
+    Catfood,
+    Xp,
+    MainStory,
+}
+
+impl UIType {
+    async fn to_opt(self) -> UIOption {
+        macro_rules! matches_opt {
+            [$($var:ident => $type:ty),+] => {
+                match self {
+                    $(UIType::$var => UIOption::$var(<$type>::new().await),)+
+                }
+            };
+        }
+        matches_opt![
+            LoadSave => LoadSave,
+            SaveSave => SaveSave,
+            Catfood => BasicItemView<CatfoodView>,
+            Xp => BasicItemView<XPView>,
+            MainStory => MainStory
+        ]
+    }
+}
+impl From<&UIOption> for UIType {
+    fn from(value: &UIOption) -> Self {
+        macro_rules! matches_opt {
+            [$($var:ident),+] => {
+                match value {
+                    $(UIOption::$var(_) => UIType::$var,)+
+                }
+            };
+        }
+        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
+    }
+}
+impl UIType {
+    pub fn all() -> Vec<UIType> {
+        vec![
+            Self::LoadSave,
+            Self::SaveSave,
+            Self::Catfood,
+            Self::Xp,
+            Self::MainStory,
+        ]
+    }
+
+    pub fn matches_option(&self, other: &UIOption) -> bool {
+        macro_rules! matches_opt {
+            [$($var:ident),+] => {
+                match self {
+                    $(UIType::$var => matches!(other, UIOption::$var(_)),)+
+                }
+            };
+        }
+        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
+    }
+
+    pub fn get_str(&self) -> &'static str {
+        macro_rules! get_str {
+            [$($var:ident => $name:literal),+] => {
+                match self {
+                    $(UIType::$var => $name,)+
+                }
+            };
+        }
+        get_str![
+            LoadSave => "load-save",
+            Catfood => "catfood",
+            SaveSave => "save-save",
+            Xp => "xp",
+            MainStory => "main-story"
+        ]
+    }
+
+    pub fn needs_save_file(&self) -> bool {
+        !matches!(self, Self::LoadSave)
+    }
+}
+
 impl UIOption {
     pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) -> Task<Message> {
         if let Some(save_file) = save_file {
@@ -63,35 +146,6 @@ impl UIOption {
         }
         return Task::none();
     }
-    pub fn base_matches(&self, other: &Self) -> bool {
-        macro_rules! matches_opt {
-            [$($var:ident),+] => {
-                match self {
-                    $(UIOption::$var(_) => matches!(other, UIOption::$var(_)),)+
-                }
-            };
-        }
-        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
-    }
-    pub fn all() -> Vec<UIOption> {
-        macro_rules! all {
-            [$($var:ident => $typ:tt),+] => {
-                vec![
-                    $(
-                     UIOption::$var($typ::default()),
-                    )+
-                ]
-            };
-        }
-        all![
-            LoadSave => LoadSave,
-            SaveSave => SaveSave,
-            Catfood => BasicItemView,
-            Xp => BasicItemView,
-            MainStory => MainStory
-
-        ]
-    }
 
     pub fn view(
         &self,
@@ -108,10 +162,6 @@ impl UIOption {
         Some(view![LoadSave, SaveSave, Catfood, Xp, MainStory])
     }
 
-    pub fn needs_save_file(&self) -> bool {
-        !matches!(self, Self::LoadSave(_))
-    }
-
     pub fn update_basic_item(
         &mut self,
         msg: BasicItemMessage,
@@ -126,26 +176,9 @@ impl UIOption {
             _ => Task::none(),
         }
     }
-
-    pub fn get_str(&self) -> &'static str {
-        macro_rules! get_str {
-            [$($var:ident => $name:literal),+] => {
-                match self {
-                    $(UIOption::$var(_) => $name,)+
-                }
-            };
-        }
-        get_str![
-            LoadSave => "load-save",
-            Catfood => "catfood",
-            SaveSave => "save-save",
-            Xp => "xp",
-            MainStory => "main-story"
-        ]
-    }
 }
 
-impl Display for &UIOption {
+impl Display for UIType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.get_str())
     }
@@ -157,6 +190,8 @@ impl ApplicationState {
             Message::Init => {
                 if let Some(ref mut sel) = self.selected_screen {
                     return sel.init(None);
+                } else {
+                    return Task::done(Message::ChangePane(UIType::LoadSave));
                 }
             }
             Message::LoadSave(msg) => {
@@ -164,7 +199,10 @@ impl ApplicationState {
                     return selected.update(msg, &self.locale_manager);
                 }
             }
-            Message::ChangePane(mut uioption) => {
+            Message::ChangePane(uitype) => {
+                return Task::perform(uitype.to_opt(), Message::ChangedScreen);
+            }
+            Message::ChangedScreen(mut uioption) => {
                 let m = uioption.init(self.save_file.as_ref());
                 self.selected_screen = Some(uioption);
                 return m;
@@ -255,11 +293,11 @@ impl ApplicationState {
 
         let mut option_row: Vec<Element<Message>> = Vec::new();
 
-        for opt in UIOption::all() {
+        for opt in UIType::all() {
             let is_selected = self
                 .selected_screen
                 .as_ref()
-                .is_some_and(|s| s.base_matches(&opt));
+                .is_some_and(|s| opt.matches_option(s));
             let mut text = iced::widget::text((&opt).localize(&self.locale_manager));
             if is_selected {
                 text = text.color(self.theme.extended_palette().success.base.text);
@@ -286,7 +324,8 @@ impl ApplicationState {
         pannel2.push(column(option_row).spacing(Pixels(10.0)).into());
 
         if let Some(ref selected) = self.selected_screen {
-            let heading = iced::widget::text(selected.localize(&self.locale_manager))
+            let sel_type: UIType = selected.into();
+            let heading = iced::widget::text(sel_type.localize(&self.locale_manager))
                 .size(20)
                 .color(self.theme.palette().primary)
                 .into();
@@ -329,7 +368,7 @@ impl ApplicationState {
             theme: Theme::CatppuccinMocha,
             current_error: None,
             current_notif: None,
-            selected_screen: Some(UIOption::LoadSave(LoadSave::default())),
+            selected_screen: None,
             locale_manager,
         };
 
@@ -350,7 +389,7 @@ impl ApplicationState {
 pub enum Message {
     Init,
     LoadedSave(Box<LoadedSaveFile>),
-    ChangePane(UIOption),
+    ChangePane(UIType),
     LoadSave(LoadSaveMsg),
     BasicItem(BasicItemMessage),
     Error(String),
@@ -359,6 +398,7 @@ pub enum Message {
     SavedSave(PathBuf),
     MainStory(MainStoryMsg),
     Codes(TransferCodes),
+    ChangedScreen(UIOption),
 }
 
 pub fn run_wasm() -> Result<(), Box<dyn std::error::Error>> {

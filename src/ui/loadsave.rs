@@ -137,15 +137,15 @@ pub struct LoadSave {
     pub adb: AdbView,
 }
 
-impl Default for LoadSave {
-    fn default() -> Self {
+impl LoadSave {
+    pub async fn new() -> Self {
         Self {
             save_path: String::default(),
             save_data: None,
             transfer_code: String::default(),
             confirmation_code: String::default(),
             selected_cc: Some(CountryCode::En),
-            adb: AdbView::new(true, super::adb::AdbDirection::LoadSave), // TODO: true from config,
+            adb: AdbView::new(super::adb::AdbDirection::LoadSave),
         }
     }
 }
@@ -252,7 +252,7 @@ impl LoadSave {
             LoadSaveMsg::OnTransferInput(t) => self.transfer_code = t,
             LoadSaveMsg::OnConfirmationInput(c) => self.confirmation_code = c,
             LoadSaveMsg::SelectCC(country_code) => self.selected_cc = Some(country_code),
-            LoadSaveMsg::Adb(adb_message) => {
+            LoadSaveMsg::Adb(adb_message) if self.adb.adb_installed.is_none_or(|i| i) => {
                 if let AdbMessage::Error(e) = adb_message {
                     return Task::done(Message::Error(e));
                 }
@@ -290,6 +290,7 @@ impl LoadSave {
                     .update(adb_message, locale_manager)
                     .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m)));
             }
+            LoadSaveMsg::Adb(_) => {}
             LoadSaveMsg::PulledAccountInfo(save_file, game_account_info, pkg) => {
                 let save_file = SaveFileAccount {
                     save_file,
@@ -360,11 +361,13 @@ impl LoadSave {
 
         cols.push(transfer_code_layout);
 
-        cols.push(
-            self.adb
-                .view(theme, locale_manager)
-                .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m))),
-        );
+        if self.adb.adb_installed.is_none_or(|i| i) {
+            cols.push(
+                self.adb
+                    .view(theme, locale_manager)
+                    .map(|m| Message::LoadSave(LoadSaveMsg::Adb(m))),
+            );
+        }
 
         iced::widget::container(iced::widget::column(cols).spacing(10)).into()
     }

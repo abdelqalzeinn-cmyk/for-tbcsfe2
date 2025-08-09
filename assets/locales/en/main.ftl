@@ -81,3 +81,4 @@ pull = Pull
 push = Push
 
 no-adb-devices = No ADB Devices Found
+use-waydroid = Use Waydroid

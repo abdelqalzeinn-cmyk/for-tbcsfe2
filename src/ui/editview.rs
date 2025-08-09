@@ -43,6 +43,12 @@ pub struct BasicItemView<T> {
 }
 
 impl<T> BasicItemView<T> {
+    pub async fn new() -> Self
+    where
+        Self: Default,
+    {
+        Self::default()
+    }
     pub fn get_value(&self, max: i32, min: i32) -> Result<i32, BasicItemError> {
         let val: i32 = self
             .current_value

@@ -42,14 +42,14 @@ pub struct SaveSave {
     pub save_data: Vec<u8>,
 }
 
-impl Default for SaveSave {
-    fn default() -> Self {
+impl SaveSave {
+    pub async fn new() -> Self {
         Self {
             save_path: "".to_string(),
             cc: CountryCode::En,
             is_transferring: false,
             codes: None,
-            adb: AdbView::new(true, super::adb::AdbDirection::LoadSave),
+            adb: AdbView::new(super::adb::AdbDirection::LoadSave),
             save_data: Vec::new(),
         }
     }
@@ -108,7 +108,7 @@ impl SaveSave {
                 .chain(Task::done(Message::Codes(codes)));
             }
             SaveSaveMsg::DoneTransfer => self.is_transferring = false,
-            SaveSaveMsg::Adb(adb_message) => {
+            SaveSaveMsg::Adb(adb_message) if self.adb.adb_installed.is_none_or(|i| i) => {
                 if let AdbMessage::SaveSave(_) = adb_message {
                     let iq = save.save_file.save.get_inquiry_code();
                     let mt = Task::done(Message::Notif("pushed-adb".localize(locale_manager)));
@@ -122,6 +122,9 @@ impl SaveSave {
                     }
                     return mt;
                 }
+                if let AdbMessage::Error(e) = adb_message {
+                    return Task::done(Message::Error(e));
+                }
                 if matches!(adb_message, AdbMessage::PushedAccountInfo) {
                     return Task::done(Message::Notif("pushed-account".localize(locale_manager)));
                 }
@@ -133,6 +136,7 @@ impl SaveSave {
                     .update(adb_message, locale_manager)
                     .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m)));
             }
+            SaveSaveMsg::Adb(_) => {}
         };
         Task::none()
     }
@@ -151,11 +155,13 @@ impl SaveSave {
 
             col.push(save_codes_layout);
         }
-        col.push(
-            self.adb
-                .view(theme, locale_manager)
-                .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m))),
-        );
+        if self.adb.adb_installed.is_none_or(|i| i) {
+            col.push(
+                self.adb
+                    .view(theme, locale_manager)
+                    .map(|m| Message::SaveSave(SaveSaveMsg::Adb(m))),
+            );
+        }
         iced::widget::container(iced::widget::column(col).spacing(10)).into()
     }
 
