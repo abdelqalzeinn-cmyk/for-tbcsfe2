@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
-pub struct GV76Block {
+pub struct GV70000Block {
     pub uncanny_chapters: UncannyChapters,
     pub _76: Assertable<76>,
 }

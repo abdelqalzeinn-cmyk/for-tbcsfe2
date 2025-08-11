@@ -530,9 +530,9 @@ pub struct Save {
     #[rw(min_gv = 47, max_gv = 90299)]
     pub gv_72: Option<gv_72::GV72Block>,
     #[rw(min_gv = 51)]
-    pub gv_76: Option<gv_76::GV76Block>,
+    pub gv_70000: Option<gv_70000::GV70000Block>,
     #[rw(min_gv = 77)]
-    pub gv_77: Option<gv_77::GV77Block>,
+    pub gv_70100: Option<gv_70100::GV70100Block>,
     #[rw(gvcc, min_gv = 80000)]
     pub gv_80000: Option<gv_80000::GV80000Block>,
     #[rw(min_gv = 80200)]
