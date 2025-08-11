@@ -1,9 +1,14 @@
 use std::{fmt::Display, num::ParseIntError};
 
 use fluent::FluentArgs;
-use iced::{Element, Length, Task};
+use iced::{
+    Element, Length, Task, Theme,
+    alignment::{Horizontal, Vertical},
+    widget::container::bordered_box,
+};
 
 use crate::{
+    edits::Edit,
     network::account_info::SaveFileAccount,
     ui::{
         app::Message,
@@ -11,19 +16,14 @@ use crate::{
     },
 };
 
-pub trait EditView {
+pub trait EditViewable {
     type Message;
 
     fn init(&mut self, save_file: &SaveFileAccount);
 
     fn view(&self, theme: &iced::Theme, locale_manager: &LocaleManager) -> Element<'_, Message>;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-        save_file: &mut SaveFileAccount,
-        locale_manager: &LocaleManager,
-    ) -> Task<Message>;
+    fn update(&mut self, message: Self::Message, locale_manager: &LocaleManager) -> Task<Message>;
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
@@ -38,6 +38,7 @@ pub enum BasicItemError {
 
 #[derive(Debug, Clone, Default)]
 pub struct BasicItemView<T> {
+    pub old: i32,
     pub item: T,
     pub current_value: String,
 }
@@ -68,7 +69,7 @@ impl<T> BasicItemView<T> {
 
 pub trait BasicItem {
     fn get_save_value(save_file: &SaveFileAccount) -> i32;
-    fn set_save_value(save_file: &mut SaveFileAccount, value: i32);
+    fn set_save_value(new: i32, old: i32) -> crate::edits::Edit;
 
     fn feature() -> BasicItemFeature;
 
@@ -106,10 +107,12 @@ impl Display for BasicItemFeature {
     }
 }
 
-impl<T: BasicItem> EditView for BasicItemView<T> {
+impl<T: BasicItem> EditViewable for BasicItemView<T> {
     type Message = BasicItemMessage;
     fn init(&mut self, save_file: &SaveFileAccount) {
-        self.current_value = T::get_save_value(save_file).to_string();
+        let val = T::get_save_value(save_file);
+        self.current_value = val.to_string();
+        self.old = val;
     }
 
     fn view(&self, _theme: &iced::Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
@@ -138,25 +141,20 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
             .into()
     }
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-        save_file: &mut SaveFileAccount,
-        locale_manager: &LocaleManager,
-    ) -> Task<Message> {
+    fn update(&mut self, message: Self::Message, locale_manager: &LocaleManager) -> Task<Message> {
         match message {
             BasicItemMessage::Submit => {
                 let value = self.get_value(T::max_value(), T::min_value());
                 match value {
                     Ok(v) => {
-                        T::set_save_value(save_file, v);
+                        let msg = T::set_save_value(v, self.old);
                         return {
                             let mut args = FluentArgs::with_capacity(2);
                             args.set("feature", T::feature().to_string());
                             args.set("value", v);
-                            Task::done(Message::Notif(
+                            Task::done(Message::Edit(msg)).chain(Task::done(Message::Notif(
                                 "set-x-to-x".localize_with_args(locale_manager, &args),
-                            ))
+                            )))
                         };
                     }
                     Err(e) => return Task::done(Message::Error(e.to_string())),
@@ -166,5 +164,59 @@ impl<T: BasicItem> EditView for BasicItemView<T> {
             BasicItemMessage::Max => self.current_value = T::max_value().to_string(),
         };
         Task::none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EditLog {
+    edits: Vec<Edit>,
+}
+
+impl EditLog {
+    pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
+        let mut items: Vec<Element<'_, Message>> = Vec::with_capacity(self.edits.len());
+
+        for edit in &self.edits {
+            let edit_widget = iced::widget::container(
+                iced::widget::row([
+                    iced::widget::text(edit.get_name().localize(locale_manager))
+                        .height(Length::Fill)
+                        .align_y(Vertical::Center)
+                        .into(),
+                    iced::widget::text(edit.to_string())
+                        .height(Length::Fill)
+                        .align_y(Vertical::Center)
+                        .into(),
+                    iced::widget::horizontal_space().into(),
+                    iced::widget::button(iced::widget::text(
+                        "revert-edit".localize(locale_manager),
+                    ))
+                    .into(),
+                ])
+                .spacing(10)
+                .width(Length::Fill)
+                .height(Length::Shrink),
+            )
+            .style(bordered_box)
+            .width(Length::Fill)
+            .padding(10);
+            items.push(edit_widget.into());
+        }
+
+        iced::widget::container(
+            iced::widget::scrollable(iced::widget::column(items).width(Length::Fill).spacing(10))
+                .spacing(10),
+        )
+        .style(bordered_box)
+        .padding(10)
+        .into()
+    }
+
+    pub async fn new() -> Self {
+        Self { edits: Vec::new() }
+    }
+
+    pub fn init(&mut self, logs: Vec<Edit>) {
+        self.edits = logs;
     }
 }

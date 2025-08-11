@@ -7,6 +7,8 @@ pub mod network;
 #[cfg(feature = "gui")]
 pub mod ui;
 
+pub mod edits;
+
 pub mod blocks;
 pub mod country_code;
 pub mod ext_source;

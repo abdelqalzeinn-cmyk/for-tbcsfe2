@@ -1,15 +1,22 @@
-use crate::{network::account_info::SaveFileAccount, ui::editview::BasicItem};
+use crate::{
+    edits::{CatfoodEdit, Edit, EditMemory, XPEdit},
+    network::account_info::SaveFileAccount,
+    ui::editview::BasicItem,
+};
 
 #[derive(Debug, Copy, Clone, Default)]
-pub struct CatfoodView {}
+pub struct CatfoodView {
+    pub old: i32,
+}
 
 impl BasicItem for CatfoodView {
     fn get_save_value(save_file: &SaveFileAccount) -> i32 {
         save_file.save_file.save.catfood
     }
-    fn set_save_value(save_file: &mut SaveFileAccount, value: i32) {
-        save_file.save_file.save.catfood = value;
+    fn set_save_value(new: i32, old: i32) -> crate::edits::Edit {
+        CatfoodEdit(EditMemory::new(new, old)).into()
     }
+
     fn feature() -> super::editview::BasicItemFeature {
         super::editview::BasicItemFeature::Catfood
     }
@@ -19,14 +26,16 @@ impl BasicItem for CatfoodView {
 }
 
 #[derive(Debug, Copy, Clone, Default)]
-pub struct XPView {}
+pub struct XPView {
+    pub old: i32,
+}
 
 impl BasicItem for XPView {
     fn get_save_value(save_file: &SaveFileAccount) -> i32 {
         save_file.save_file.save.xp
     }
-    fn set_save_value(save_file: &mut SaveFileAccount, value: i32) {
-        save_file.save_file.save.xp = value;
+    fn set_save_value(new: i32, old: i32) -> Edit {
+        XPEdit(EditMemory::new(new, old)).into()
     }
     fn feature() -> super::editview::BasicItemFeature {
         super::editview::BasicItemFeature::Xp

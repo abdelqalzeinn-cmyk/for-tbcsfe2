@@ -12,11 +12,12 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
+    edits::{Applyable, Edit},
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
         asset::AssetManager,
         catfood::{CatfoodView, XPView},
-        editview::{BasicItemMessage, BasicItemView, EditView},
+        editview::{BasicItemMessage, BasicItemView, EditLog, EditViewable},
         loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
         localization::{LocaleManager, Localizable},
         mainstory::{MainStory, MainStoryMsg},
@@ -30,6 +31,8 @@ pub struct ApplicationState {
     pub current_error: Option<String>,
     pub current_notif: Option<String>,
     pub selected_screen: Option<UIOption>,
+    pub edits: Vec<crate::edits::Edit>,
+    pub current_edits: Vec<Edit>,
     pub locale_manager: LocaleManager,
 }
 
@@ -40,6 +43,7 @@ pub enum UIOption {
     Catfood(BasicItemView<CatfoodView>),
     Xp(BasicItemView<XPView>),
     MainStory(MainStory),
+    EditLog(EditLog),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -49,6 +53,7 @@ pub enum UIType {
     Catfood,
     Xp,
     MainStory,
+    EditLog,
 }
 
 impl UIType {
@@ -65,7 +70,8 @@ impl UIType {
             SaveSave => SaveSave,
             Catfood => BasicItemView<CatfoodView>,
             Xp => BasicItemView<XPView>,
-            MainStory => MainStory
+            MainStory => MainStory,
+            EditLog => EditLog
         ]
     }
 }
@@ -78,7 +84,7 @@ impl From<&UIOption> for UIType {
                 }
             };
         }
-        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
+        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog]
     }
 }
 impl UIType {
@@ -89,6 +95,7 @@ impl UIType {
             Self::Catfood,
             Self::Xp,
             Self::MainStory,
+            Self::EditLog,
         ]
     }
 
@@ -100,7 +107,7 @@ impl UIType {
                 }
             };
         }
-        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory]
+        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog]
     }
 
     pub fn get_str(&self) -> &'static str {
@@ -116,7 +123,8 @@ impl UIType {
             Catfood => "catfood",
             SaveSave => "save-save",
             Xp => "xp",
-            MainStory => "main-story"
+            MainStory => "main-story",
+            EditLog => "edit-log"
         ]
     }
 
@@ -126,7 +134,11 @@ impl UIType {
 }
 
 impl UIOption {
-    pub fn init(&mut self, save_file: Option<&LoadedSaveFile>) -> Task<Message> {
+    pub fn init(
+        &mut self,
+        save_file: Option<&LoadedSaveFile>,
+        edit_log: &Vec<Edit>,
+    ) -> Task<Message> {
         if let Some(save_file) = save_file {
             macro_rules! init {
                 [$($var:ident),+] => {
@@ -144,6 +156,9 @@ impl UIOption {
         if let UIOption::LoadSave(load_save) = self {
             return load_save.init();
         }
+        if let UIOption::EditLog(log) = self {
+            log.init(edit_log.clone());
+        }
         return Task::none();
     }
 
@@ -159,20 +174,17 @@ impl UIOption {
                 }
             };
         }
-        Some(view![LoadSave, SaveSave, Catfood, Xp, MainStory])
+        Some(view![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog])
     }
 
     pub fn update_basic_item(
         &mut self,
         msg: BasicItemMessage,
-        save_file: &mut SaveFileAccount,
         locale_manager: &LocaleManager,
     ) -> Task<Message> {
         match self {
-            UIOption::Catfood(basic_item_view) => {
-                basic_item_view.update(msg, save_file, locale_manager)
-            }
-            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, save_file, locale_manager),
+            UIOption::Catfood(basic_item_view) => basic_item_view.update(msg, locale_manager),
+            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, locale_manager),
             _ => Task::none(),
         }
     }
@@ -189,7 +201,7 @@ impl ApplicationState {
         match message {
             Message::Init => {
                 if let Some(ref mut sel) = self.selected_screen {
-                    return sel.init(None);
+                    return sel.init(None, &self.edits);
                 } else {
                     return Task::done(Message::ChangePane(UIType::LoadSave));
                 }
@@ -203,7 +215,14 @@ impl ApplicationState {
                 return Task::perform(uitype.to_opt(), Message::ChangedScreen);
             }
             Message::ChangedScreen(mut uioption) => {
-                let m = uioption.init(self.save_file.as_ref());
+                if let Some(ref mut save) = self.save_file {
+                    let len = self.current_edits.len();
+                    for edit in self.current_edits.drain(0..len) {
+                        edit.apply(&mut save.save_file.save_file);
+                        self.edits.push(edit);
+                    }
+                }
+                let m = uioption.init(self.save_file.as_ref(), &self.edits);
                 self.selected_screen = Some(uioption);
                 return m;
             }
@@ -213,14 +232,8 @@ impl ApplicationState {
             }
             Message::Error(e) => self.current_error = Some(e),
             Message::BasicItem(msg) => {
-                if let Some(ref mut save_file) = self.save_file
-                    && let Some(ref mut option) = self.selected_screen
-                {
-                    return option.update_basic_item(
-                        msg,
-                        &mut save_file.save_file,
-                        &self.locale_manager,
-                    );
+                if let Some(ref mut option) = self.selected_screen {
+                    return option.update_basic_item(msg, &self.locale_manager);
                 }
             }
             Message::SaveSave(save_save_msg) => {
@@ -239,10 +252,8 @@ impl ApplicationState {
             }
             Message::Notif(notif) => self.current_notif = Some(notif),
             Message::MainStory(msg) => {
-                if let Some(UIOption::MainStory(ref mut selected)) = self.selected_screen
-                    && let Some(ref mut save_file) = self.save_file
-                {
-                    return selected.update(msg, &mut save_file.save_file, &self.locale_manager);
+                if let Some(UIOption::MainStory(ref mut selected)) = self.selected_screen {
+                    return selected.update(msg, &self.locale_manager);
                 }
             }
             Message::Codes(c) => {
@@ -250,6 +261,7 @@ impl ApplicationState {
                     save.codes = Some(c)
                 }
             }
+            Message::Edit(edit) => self.current_edits.push(edit),
         };
         Task::none()
     }
@@ -369,11 +381,21 @@ impl ApplicationState {
             current_error: None,
             current_notif: None,
             selected_screen: None,
+            edits: Vec::new(),
+            current_edits: Vec::new(),
             locale_manager,
         };
 
         if let Some(path) = filepath {
             let save = SaveFileAccount::load_from_path(&path, None)?;
+            dbg!(
+                save.save_file
+                    .save
+                    .gv_70100
+                    .clone()
+                    .unwrap_or_default()
+                    .catamin_stages
+            );
             app.save_file = Some(LoadedSaveFile {
                 source: super::loadsave::SaveSource::Path(path),
                 save_file: save,
@@ -388,6 +410,7 @@ impl ApplicationState {
 #[derive(Debug, Clone)]
 pub enum Message {
     Init,
+    Edit(crate::edits::Edit),
     LoadedSave(Box<LoadedSaveFile>),
     ChangePane(UIType),
     LoadSave(LoadSaveMsg),
