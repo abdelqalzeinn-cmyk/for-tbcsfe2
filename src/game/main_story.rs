@@ -5,6 +5,7 @@ use bcsfe_derive::{Readable, Writable};
 pub const TOTAL_STORY_CHAPTERS: usize = 10;
 pub const TOTAL_CLEAR_TIME_STAGES: usize = 51;
 pub const TOTAL_STORY_STAGES: usize = 49;
+pub const TOTAL_INGAME_STAGES: usize = 48;
 
 #[derive(Debug, Copy, Clone, Readable, Writable)]
 pub struct StoryChapters {
@@ -209,6 +210,12 @@ pub struct StoryStage {
     pub stage_id: StageId,
 }
 
+impl StoryStage {
+    pub fn new(chapter: StoryChapterType, stage_id: StageId) -> Self {
+        Self { chapter, stage_id }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClearStageOptions {
     pub stage: StoryStage,
@@ -403,7 +410,7 @@ impl StoryChapters {
         }
     }
     pub fn add_chapter_progress(&mut self, stage: StoryStage) -> bool {
-        let current = self.get_chapter_progress(stage);
+        let current = self.get_chapter_progress(stage.chapter);
 
         let stage_id: i32 = stage.stage_id.into();
 
@@ -422,10 +429,10 @@ impl StoryChapters {
 
         *progress = stage.stage_id.into();
     }
-    pub fn get_chapter_progress(&self, stage: StoryStage) -> i32 {
+    pub fn get_chapter_progress(&self, chapter: StoryChapterType) -> i32 {
         *self
             .chapter_progress
-            .get(stage.chapter.into_chapter_index())
+            .get(chapter.into_chapter_index())
             .expect("chapter index was correctly calculated")
     }
     pub fn get_clear_amount(&self, stage: StoryStage) -> i32 {
