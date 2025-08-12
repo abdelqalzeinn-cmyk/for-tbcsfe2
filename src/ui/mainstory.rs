@@ -2,18 +2,14 @@ use std::fmt::Display;
 
 use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
+use crate::localization::{LocaleManager, Localizable};
 use crate::{
     edits::{ClearStoryChapters, StoryChaptersEdit},
     game::main_story::{
         InnerChapterType, StageId, StoryChapterType, StoryChapters, StoryStage, TOTAL_INGAME_STAGES,
     },
     network::account_info::SaveFileAccount,
-    ui::{
-        app::Message,
-        editview::EditViewable,
-        helper::labeled_box,
-        localization::{LocaleManager, Localizable},
-    },
+    ui::{app::Message, editview::EditViewable, helper::labeled_box},
 };
 
 #[derive(Debug, Clone)]
@@ -193,15 +189,15 @@ impl Display for Chapters {
             f,
             "{}",
             match self {
-                Chapters::Eoc1 => "chapter_1",
-                Chapters::Eoc2 => "chapter_2",
-                Chapters::Eoc3 => "chapter_3",
-                Chapters::Itf1 => "chapter_4",
-                Chapters::Itf2 => "chapter_5",
-                Chapters::Itf3 => "chapter_6",
-                Chapters::Cotc1 => "chapter_7",
-                Chapters::Cotc2 => "chapter_8",
-                Chapters::Cotc3 => "chapter_9",
+                Chapters::Eoc1 => "chapter-1",
+                Chapters::Eoc2 => "chapter-2",
+                Chapters::Eoc3 => "chapter-3",
+                Chapters::Itf1 => "chapter-4",
+                Chapters::Itf2 => "chapter-5",
+                Chapters::Itf3 => "chapter-6",
+                Chapters::Cotc1 => "chapter-7",
+                Chapters::Cotc2 => "chapter-8",
+                Chapters::Cotc3 => "chapter-9",
             }
         )
     }

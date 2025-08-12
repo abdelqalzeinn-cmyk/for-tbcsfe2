@@ -9,6 +9,9 @@ pub mod ui;
 
 pub mod edits;
 
+#[cfg(feature = "localization")]
+pub mod localization;
+
 pub mod blocks;
 pub mod country_code;
 pub mod ext_source;

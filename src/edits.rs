@@ -14,18 +14,42 @@ pub enum ClearStoryChapters {
     ClearAll(ClearAllChaptersOptions),
 }
 
-impl Display for ClearStoryChapters {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ClearStoryChapters::ClearStage(clear_stage_options) => format!("clear-stage"),
-                ClearStoryChapters::ClearChapter(clear_chapter_options) => format!("clear-chapter"),
-                ClearStoryChapters::ClearAll(clear_all_chapters_options) =>
-                    format!("clear-all-chapters"),
+#[cfg(feature = "localization")]
+impl crate::localization::Localizable for ClearStoryChapters {
+    fn localize_with_args(
+        &self,
+        manager: &crate::localization::LocaleManager,
+        _args: &fluent::FluentArgs,
+    ) -> String {
+        match self {
+            ClearStoryChapters::ClearStage(clear_stage_options) => "clear-stage"
+                .localize_with_args(
+                    manager,
+                    &fluent::FluentArgs::from_iter([
+                        (
+                            "chapter",
+                            fluent::FluentValue::from(
+                                clear_stage_options.stage.chapter.localize(manager),
+                            ),
+                        ),
+                        (
+                            "stage",
+                            clear_stage_options.stage.stage_id.into_usize().into(),
+                        ),
+                    ]),
+                ),
+            ClearStoryChapters::ClearChapter(clear_chapter_options) => "clear-chapter"
+                .localize_with_args(
+                    manager,
+                    &fluent::FluentArgs::from_iter([(
+                        "chapter",
+                        clear_chapter_options.chapter.localize(manager),
+                    )]),
+                ),
+            ClearStoryChapters::ClearAll(clear_all_chapters_options) => {
+                "clear-all-chapters".localize(manager)
             }
-        )
+        }
     }
 }
 
@@ -60,9 +84,14 @@ impl From<StoryChaptersEdit> for Edit {
     }
 }
 
-impl Display for StoryChaptersEdit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.new.fmt(f)
+#[cfg(feature = "localization")]
+impl crate::localization::Localizable for StoryChaptersEdit {
+    fn localize_with_args(
+        &self,
+        manager: &crate::localization::LocaleManager,
+        _args: &fluent::FluentArgs,
+    ) -> String {
+        self.0.new.localize(manager)
     }
 }
 
@@ -171,16 +200,21 @@ pub enum Edit {
     MainStory(StoryChaptersEdit),
 }
 
-impl Display for Edit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        macro_rules! to_string {
+#[cfg(feature = "localization")]
+impl crate::localization::Localizable for Edit {
+    fn localize_with_args(
+        &self,
+        manager: &crate::localization::LocaleManager,
+        _args: &fluent::FluentArgs,
+    ) -> String {
+        macro_rules! localize {
             [$($var:ident),+] => {
                 match self {
-                    $(Self::$var(v) => v.to_string(),)+
+                    $(Self::$var(v) => v.localize(manager),)+
                 }
             };
         }
-        write!(f, "{}", to_string![Catfood, XP, MainStory])
+        localize![Catfood, XP, MainStory]
     }
 }
 

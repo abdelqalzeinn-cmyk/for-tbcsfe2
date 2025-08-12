@@ -1,19 +1,13 @@
 use std::{fmt::Display, num::ParseIntError};
 
 use fluent::FluentArgs;
-use iced::{
-    Element, Length, Task, Theme,
-    alignment::{Horizontal, Vertical},
-    widget::container::bordered_box,
-};
+use iced::{Element, Length, Task, Theme, alignment::Vertical, widget::container::bordered_box};
 
 use crate::{
     edits::Edit,
+    localization::{LocaleManager, Localizable},
     network::account_info::SaveFileAccount,
-    ui::{
-        app::Message,
-        localization::{LocaleManager, Localizable},
-    },
+    ui::app::Message,
 };
 
 pub trait EditViewable {
@@ -183,7 +177,7 @@ impl EditLog {
                         .height(Length::Fill)
                         .align_y(Vertical::Center)
                         .into(),
-                    iced::widget::text(edit.to_string())
+                    iced::widget::text(edit.localize(locale_manager))
                         .height(Length::Fill)
                         .align_y(Vertical::Center)
                         .into(),

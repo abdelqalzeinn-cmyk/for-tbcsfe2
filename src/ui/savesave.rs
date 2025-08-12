@@ -6,6 +6,7 @@ use iced::{
     widget::{container::bordered_box, text::LineHeight},
 };
 
+use crate::localization::{LocaleManager, Localizable};
 use crate::{
     country_code::CountryCode,
     network::{
@@ -17,7 +18,6 @@ use crate::{
         app::Message,
         helper::labeled_box,
         loadsave::{LoadedSaveFile, LocalizedCC, SaveSource},
-        localization::{LocaleManager, Localizable},
     },
 };
 

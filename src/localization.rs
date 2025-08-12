@@ -169,17 +169,22 @@ toggle-select-all = Toggle Select All
     }
 }
 
-pub trait Localizable: ToString {
-    fn localize(&self, manager: &LocaleManager) -> String {
-        manager.localize(&self.to_string())
-    }
+pub trait Localizable {
+    fn localize_with_args(&self, manager: &LocaleManager, args: &FluentArgs) -> String;
 
-    fn localize_with_args(&self, manager: &LocaleManager, args: &FluentArgs) -> String {
-        manager.localize_with_args(&self.to_string(), args)
+    fn localize(&self, manager: &LocaleManager) -> String {
+        self.localize_with_args(manager, &FluentArgs::new())
     }
     fn localize_optional_args(&self, manager: &LocaleManager, args: Option<&FluentArgs>) -> String {
-        manager.localize_optional_args(&self.to_string(), args)
+        match args {
+            Some(a) => self.localize_with_args(manager, a),
+            None => self.localize(manager),
+        }
     }
 }
 
-impl<T: ToString> Localizable for T {}
+impl<T: ToString> Localizable for T {
+    fn localize_with_args(&self, manager: &LocaleManager, args: &FluentArgs) -> String {
+        manager.localize_with_args(&self.to_string(), args)
+    }
+}

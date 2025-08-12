@@ -13,13 +13,13 @@ use unic_langid::LanguageIdentifier;
 
 use crate::{
     edits::{Applyable, Edit},
+    localization::{LocaleManager, Localizable},
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
         asset::AssetManager,
         catfood::{CatfoodView, XPView},
         editview::{BasicItemMessage, BasicItemView, EditLog, EditViewable},
         loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
-        localization::{LocaleManager, Localizable},
         mainstory::{MainStory, MainStoryMsg},
         savesave::{SaveSave, SaveSaveMsg},
     },
@@ -388,14 +388,14 @@ impl ApplicationState {
 
         if let Some(path) = filepath {
             let save = SaveFileAccount::load_from_path(&path, None)?;
-            dbg!(
-                save.save_file
-                    .save
-                    .gv_70100
-                    .clone()
-                    .unwrap_or_default()
-                    .catamin_stages
-            );
+            // dbg!(
+            //     save.save_file
+            //         .save
+            //         .gv_70100
+            //         .clone()
+            //         .unwrap_or_default()
+            //         .catamin_stages
+            // );
             app.save_file = Some(LoadedSaveFile {
                 source: super::loadsave::SaveSource::Path(path),
                 save_file: save,

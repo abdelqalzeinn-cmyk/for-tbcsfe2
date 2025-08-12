@@ -11,6 +11,7 @@ use iced::{
 
 use crate::{
     country_code::CountryCode,
+    localization::{LocaleManager, Localizable},
     network::{
         account_info::{EditorAccountInfo, GameAccountInfo, SaveFileAccount},
         password::TransferCodes,
@@ -21,7 +22,6 @@ use crate::{
         adb::{AdbMessage, AdbView},
         app::Message,
         helper::labeled_box,
-        localization::{LocaleManager, Localizable},
     },
 };
 

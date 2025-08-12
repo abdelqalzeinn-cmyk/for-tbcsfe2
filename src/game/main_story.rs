@@ -35,6 +35,12 @@ impl FromStr for InnerChapterType {
     }
 }
 
+impl InnerChapterType {
+    pub fn into_usize(self) -> usize {
+        self.into()
+    }
+}
+
 impl From<InnerChapterType> for usize {
     fn from(value: InnerChapterType) -> Self {
         match value {
@@ -51,6 +57,13 @@ pub enum StoryChapterType {
     Itf(InnerChapterType),
     Cotc(InnerChapterType),
 }
+
+impl std::fmt::Display for StoryChapterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "chapter-{}", self.into_human_chapter_index() + 1)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord, Default)]
 pub enum StoryChapterTypeOuter {
     #[default]
@@ -117,7 +130,7 @@ impl StoryChapterType {
 }
 
 impl StoryChapterType {
-    fn into_base_chapter_index(self) -> usize {
+    pub fn into_base_chapter_index(self) -> usize {
         match self {
             StoryChapterType::Eoc(_) => 0,
             // gap between eoc and itf for some reason
@@ -125,8 +138,15 @@ impl StoryChapterType {
             StoryChapterType::Cotc(_) => 7,
         }
     }
+    pub fn into_human_base_chapter_index(self) -> usize {
+        match self {
+            StoryChapterType::Eoc(_) => 0,
+            StoryChapterType::Itf(_) => 3,
+            StoryChapterType::Cotc(_) => 6,
+        }
+    }
 
-    fn into_local_chapter_index(self) -> usize {
+    pub fn into_local_chapter_index(self) -> usize {
         match self {
             StoryChapterType::Eoc(inner_chapter_type) => inner_chapter_type.into(),
             StoryChapterType::Itf(inner_chapter_type) => inner_chapter_type.into(),
@@ -134,8 +154,12 @@ impl StoryChapterType {
         }
     }
 
-    fn into_chapter_index(self) -> usize {
+    pub fn into_chapter_index(self) -> usize {
         self.into_base_chapter_index() + self.into_local_chapter_index()
+    }
+
+    pub fn into_human_chapter_index(self) -> usize {
+        self.into_human_base_chapter_index() + self.into_local_chapter_index()
     }
 }
 

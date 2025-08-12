@@ -43,10 +43,9 @@ wasm = [
 gui = [
   "network",
   "adb",
+  "localization",
   "dep:iced",
   "dep:rfd",
-  "dep:fluent",
-  "dep:unic-langid",
   "dep:toml",
   "dep:serde",
   "dep:thiserror",
@@ -63,4 +62,5 @@ network = [
   "dep:zip",
   "dep:thiserror",
 ]
+localization = ["dep:fluent", "dep:unic-langid"]
 adb = ["dep:adb_client"]

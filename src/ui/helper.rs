@@ -1,6 +1,6 @@
-use crate::ui::{
-    app::Message,
+use crate::{
     localization::{LocaleManager, Localizable},
+    ui::app::Message,
 };
 
 pub fn localized_box<'a>(

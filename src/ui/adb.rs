@@ -9,12 +9,10 @@ use crate::{
         waydroid_handler::{WaydroidGameHandler, is_waydroid_installed},
     },
     ext_source::ExternalSaveSource,
+    localization::{LocaleManager, Localizable},
     network::account_info::GameAccountInfo,
     save::SaveFile,
-    ui::{
-        helper::labeled_box,
-        localization::{LocaleManager, Localizable},
-    },
+    ui::helper::labeled_box,
 };
 
 #[derive(Debug, Clone)]

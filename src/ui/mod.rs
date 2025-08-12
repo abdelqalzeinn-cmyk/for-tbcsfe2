@@ -5,6 +5,5 @@ pub mod catfood;
 pub mod editview;
 pub mod helper;
 pub mod loadsave;
-pub mod localization;
 pub mod mainstory;
 pub mod savesave;
