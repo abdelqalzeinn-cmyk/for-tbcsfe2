@@ -68,11 +68,17 @@ fn escape_command(cmd: Vec<String>) -> String {
 }
 
 impl WaydroidHandler {
-    pub async fn run_command(&self, cmd: &[&str]) -> Result<Vec<u8>, WaydroidError> {
-        // Use tokio's spawn_blocking to run the blocking I/O operation in a separate thread
-        let cmd: Vec<String> = cmd.into_iter().map(|v| v.to_string()).collect();
+    pub async fn run_command(&self, cmds: &[&str]) -> Result<Vec<u8>, WaydroidError> {
+        self.run_commands(&[cmds]).await
+    }
+    pub async fn run_commands(&self, cmds: &[&[&str]]) -> Result<Vec<u8>, WaydroidError> {
+        let cmds: Vec<Vec<String>> = cmds
+            .into_iter()
+            .map(|cmd| cmd.into_iter().map(|v| v.to_string()).collect())
+            .collect();
         std::thread::spawn(move || {
-            let mut command = std::process::Command::new("waydroid")
+            let mut command = std::process::Command::new("pkexec")
+                .arg("waydroid")
                 .arg("shell")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -81,9 +87,12 @@ impl WaydroidHandler {
                 .map_err(WaydroidError::Io)?;
 
             if let Some(mut stdin) = command.stdin.take() {
-                stdin
-                    .write_all(escape_command(cmd).as_bytes())
-                    .map_err(WaydroidError::Io)?;
+                for cmd in cmds {
+                    stdin
+                        .write_all(escape_command(cmd).as_bytes())
+                        .map_err(WaydroidError::Io)?;
+                    stdin.write_all(";".as_bytes()).map_err(WaydroidError::Io)?;
+                }
             }
 
             let output = command.wait_with_output().map_err(WaydroidError::Io)?;
@@ -107,10 +116,12 @@ impl WaydroidHandler {
             .adb_push_file(&mut std::io::Cursor::new(input), &temp_path)
             .map_err(WaydroidError::Adb)?;
 
-        self.run_command(&["mv", &temp_path.to_string_lossy(), &path.to_string_lossy()])
-            .await?;
-        self.run_command(&["chmod", "664", &path.to_string_lossy()])
-            .await?;
+        // reduces 1 pkexec call
+        self.run_commands(&[
+            &["mv", &temp_path.to_string_lossy(), &path.to_string_lossy()],
+            &["chmod", "664", &path.to_string_lossy()],
+        ])
+        .await?;
 
         Ok(())
     }
@@ -138,6 +149,17 @@ impl WaydroidHandler {
     pub async fn run_program(&mut self, pkg: &str) -> Result<(), WaydroidError> {
         self.run_command(&["monkey", "--pct-syskeys", "0", "-p", pkg, "1"])
             .await?;
+
+        Ok(())
+    }
+
+    pub async fn rerun_program(&mut self, pkg: &str) -> Result<(), WaydroidError> {
+        // reduces 1 pkexec call
+        self.run_commands(&[
+            &["am", "force-stop", pkg],
+            &["monkey", "--pct-syskeys", "0", "-p", pkg, "1"],
+        ])
+        .await?;
 
         Ok(())
     }
@@ -173,6 +195,9 @@ impl ExternalSaveSource for WaydroidGameHandler {
     }
     async fn run_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
         self.handler.run_program(pkg).await
+    }
+    async fn rerun_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
+        self.handler.rerun_program(pkg).await
     }
     async fn get_all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
         let res = self
