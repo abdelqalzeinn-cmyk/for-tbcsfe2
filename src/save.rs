@@ -2135,6 +2135,7 @@ pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
         22 => 231,
         23 => 241,
         24 => 249,
+        25 => 260,
         _ => return None,
     })
 }
