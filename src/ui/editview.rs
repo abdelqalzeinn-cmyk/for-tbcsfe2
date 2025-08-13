@@ -167,7 +167,7 @@ pub struct EditLog {
 }
 
 impl EditLog {
-    pub fn view(&self, theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
+    pub fn view(&self, _theme: &Theme, locale_manager: &LocaleManager) -> Element<'_, Message> {
         let mut items: Vec<Element<'_, Message>> = Vec::with_capacity(self.edits.len());
 
         for edit in &self.edits {
