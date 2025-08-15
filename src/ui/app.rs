@@ -12,7 +12,7 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    edits::{Applyable, Edit, basic_items::PlatinumTicketEdit},
+    edits::{Applyable, Edit},
     localization::{LocaleManager, Localizable},
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
@@ -437,18 +437,18 @@ impl ApplicationState {
 
         let mut pannel2: Vec<Element<Message>> = Vec::new();
 
-        let search_box = iced::widget::container(
-            iced::widget::text_input(
-                &"filter".localize(&self.locale_manager),
-                &self.searched_feature,
-            )
-            .on_input(Message::Search),
-        );
+        let search_box = iced::widget::text_input(
+            &"filter".localize(&self.locale_manager),
+            &self.searched_feature,
+        )
+        .on_input(Message::Search);
 
         pannel2.push(
             iced::widget::column([
                 search_box.into(),
-                column(option_row).spacing(Pixels(10.0)).into(),
+                iced::widget::scrollable(column(option_row).spacing(Pixels(10.0)))
+                    .spacing(10)
+                    .into(),
             ])
             .spacing(10)
             .width(Length::FillPortion(2))
