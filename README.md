@@ -4,7 +4,7 @@ A rust port of <https://github.com/fieryhenry/BCSFE-Python> with a GUI.
 
 Note: this project is quite early on in development, so there will be many features missing.
 
-WARNING: there is no ban prevention measures, so editing catfood, rare tickets, platinum tickets
+WARNING: there is no ban prevention measures yet, so editing catfood, rare tickets, platinum tickets
 and legend tickets could lead to your account being banned.
 
 ## Features
