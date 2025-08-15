@@ -94,3 +94,5 @@ legend-tickets = Legend Tickets
 leadership = Leadership
 np = NP
 edit-log = Edit Log
+
+filter = Filter

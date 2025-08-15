@@ -37,6 +37,7 @@ pub struct ApplicationState {
     pub edits: Vec<crate::edits::Edit>,
     pub current_edits: Vec<Edit>,
     pub locale_manager: LocaleManager,
+    pub searched_feature: String,
 }
 
 #[derive(Debug, Clone)]
@@ -357,6 +358,7 @@ impl ApplicationState {
                 }
             }
             Message::Edit(edit) => self.current_edits.push(edit),
+            Message::Search(s) => self.searched_feature = s,
         };
         Task::none()
     }
@@ -405,7 +407,14 @@ impl ApplicationState {
                 .selected_screen
                 .as_ref()
                 .is_some_and(|s| opt.matches_option(s));
-            let mut text = iced::widget::text((&opt).localize(&self.locale_manager));
+            let name = opt.localize(&self.locale_manager);
+            if !name
+                .to_lowercase()
+                .contains(&self.searched_feature.to_lowercase())
+            {
+                continue;
+            }
+            let mut text = iced::widget::text(name);
             if is_selected {
                 text = text.color(self.theme.extended_palette().success.base.text);
             }
@@ -428,7 +437,23 @@ impl ApplicationState {
 
         let mut pannel2: Vec<Element<Message>> = Vec::new();
 
-        pannel2.push(column(option_row).spacing(Pixels(10.0)).into());
+        let search_box = iced::widget::container(
+            iced::widget::text_input(
+                &"filter".localize(&self.locale_manager),
+                &self.searched_feature,
+            )
+            .on_input(Message::Search),
+        );
+
+        pannel2.push(
+            iced::widget::column([
+                search_box.into(),
+                column(option_row).spacing(Pixels(10.0)).into(),
+            ])
+            .spacing(10)
+            .width(Length::FillPortion(2))
+            .into(),
+        );
 
         if let Some(ref selected) = self.selected_screen {
             let sel_type: UIType = selected.into();
@@ -479,6 +504,7 @@ impl ApplicationState {
             edits: Vec::new(),
             current_edits: Vec::new(),
             locale_manager,
+            searched_feature: String::new(),
         };
 
         if let Some(path) = filepath {
@@ -517,6 +543,7 @@ pub enum Message {
     MainStory(MainStoryMsg),
     Codes(TransferCodes),
     ChangedScreen(UIOption),
+    Search(String),
 }
 
 pub fn run_wasm() -> Result<(), Box<dyn std::error::Error>> {
