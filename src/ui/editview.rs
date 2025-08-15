@@ -88,6 +88,10 @@ pub enum BasicItemFeature {
     Xp,
     NormalTickets,
     RareTickets,
+    PlatinumTickets,
+    LegendTickets,
+    NP,
+    Leadership,
 }
 
 impl Display for BasicItemFeature {
@@ -100,6 +104,10 @@ impl Display for BasicItemFeature {
                 BasicItemFeature::Xp => "xp",
                 BasicItemFeature::NormalTickets => "normal-tickets",
                 BasicItemFeature::RareTickets => "rare-tickets",
+                BasicItemFeature::PlatinumTickets => "platinum-tickets",
+                BasicItemFeature::LegendTickets => "legend-tickets",
+                BasicItemFeature::NP => "np",
+                BasicItemFeature::Leadership => "leadership",
             }
         )
     }

@@ -86,3 +86,11 @@ use-waydroid = Use Waydroid
 revert-edit = Revert Edit
 
 clear-chapter = Cleared Chapter { $chapter }
+
+normal-tickets = Normal Tickets
+rare-tickets = Rare Tickets
+platinum-tickets = Platinum Tickets
+legend-tickets = Legend Tickets
+leadership = Leadership
+np = NP
+edit-log = Edit Log

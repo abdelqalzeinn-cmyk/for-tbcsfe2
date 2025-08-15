@@ -43,4 +43,8 @@ basic_item!(i32, CatfoodEdit => Catfood => Save::get_catfood => Save::set_catfoo
 basic_item!(i32, XPEdit => XP => Save::get_xp => Save::set_xp);
 basic_item!(i32, NormalTicketEdit => NormalTickets => Save::get_normal_tickets => Save::set_normal_tickets);
 basic_item!(i32, RareTicketEdit => RareTickets => Save::get_rare_tickets => Save::set_rare_tickets);
+basic_item!(i32, PlatinumTicketEdit => PlatinumTickets => |s| Save::get_platinum_tickets(s).unwrap_or_default() => Save::set_platinum_tickets);
+basic_item!(i32, LegendTicketEdit => LegendTickets => |s| Save::get_legend_tickets(s).unwrap_or_default() => Save::set_legend_tickets);
+basic_item!(i32, NPEdit => NP => |s| Save::get_np(s).unwrap_or_default() => Save::set_np);
+basic_item!(i16, LeadershipEdit => Leadership => |s| Save::get_leadership(s).unwrap_or_default() => Save::set_leadership);
 basic_item!(String, InquiryCodeEdit => InquiryCode => |save| Save::get_inquiry_code_with_default(save, "".to_string()) => Save::set_inquiry_code);

@@ -12,12 +12,15 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    edits::{Applyable, Edit},
+    edits::{Applyable, Edit, basic_items::PlatinumTicketEdit},
     localization::{LocaleManager, Localizable},
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
         asset::AssetManager,
-        catfood::{CatfoodView, NormalTicketView, RareTicketView, XPView},
+        catfood::{
+            CatfoodView, LeadershipView, LegendTicketView, NPView, NormalTicketView,
+            PlatinumTicketView, RareTicketView, XPView,
+        },
         editview::{BasicItemMessage, BasicItemView, EditLog, EditViewable},
         loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
         mainstory::{MainStory, MainStoryMsg},
@@ -44,6 +47,10 @@ pub enum UIOption {
     Xp(BasicItemView<XPView>),
     NormalTickets(BasicItemView<NormalTicketView>),
     RareTickets(BasicItemView<RareTicketView>),
+    PlatinumTickets(BasicItemView<PlatinumTicketView>),
+    LegendTickets(BasicItemView<LegendTicketView>),
+    NP(BasicItemView<NPView>),
+    Leadership(BasicItemView<LeadershipView>),
     MainStory(MainStory),
     EditLog(EditLog),
 }
@@ -58,6 +65,10 @@ pub enum UIType {
     EditLog,
     NormalTickets,
     RareTickets,
+    PlatinumTickets,
+    LegendTickets,
+    NP,
+    Leadership,
 }
 
 impl UIType {
@@ -77,7 +88,11 @@ impl UIType {
             MainStory => MainStory,
             EditLog => EditLog,
             NormalTickets => BasicItemView,
-            RareTickets => BasicItemView
+            RareTickets => BasicItemView,
+            PlatinumTickets => BasicItemView,
+            LegendTickets => BasicItemView,
+            NP => BasicItemView,
+            Leadership => BasicItemView
         ]
     }
 }
@@ -98,7 +113,11 @@ impl From<&UIOption> for UIType {
             MainStory,
             EditLog,
             NormalTickets,
-            RareTickets
+            RareTickets,
+            PlatinumTickets,
+            LegendTickets,
+            NP,
+            Leadership
         ]
     }
 }
@@ -111,6 +130,10 @@ impl UIType {
             Self::Xp,
             Self::NormalTickets,
             Self::RareTickets,
+            Self::PlatinumTickets,
+            Self::LegendTickets,
+            Self::Leadership,
+            Self::NP,
             Self::MainStory,
             Self::EditLog,
         ]
@@ -132,7 +155,11 @@ impl UIType {
             MainStory,
             EditLog,
             NormalTickets,
-            RareTickets
+            RareTickets,
+            PlatinumTickets,
+            LegendTickets,
+            NP,
+            Leadership
         ]
     }
 
@@ -152,7 +179,11 @@ impl UIType {
             MainStory => "main-story",
             EditLog => "edit-log",
             NormalTickets => "normal-tickets",
-            RareTickets => "rare-tickets"
+            RareTickets => "rare-tickets",
+            PlatinumTickets => "platinum-tickets",
+            LegendTickets => "legend-tickets",
+            NP => "np",
+            Leadership => "leadership"
         ]
     }
 
@@ -176,7 +207,17 @@ impl UIOption {
                     }
                 };
             }
-            init![Catfood, Xp, MainStory, NormalTickets, RareTickets];
+            init![
+                Catfood,
+                Xp,
+                MainStory,
+                NormalTickets,
+                RareTickets,
+                PlatinumTickets,
+                LegendTickets,
+                NP,
+                Leadership
+            ];
             if let UIOption::SaveSave(save_save) = self {
                 return save_save.init(save_file);
             }
@@ -210,7 +251,11 @@ impl UIOption {
             MainStory,
             EditLog,
             RareTickets,
-            NormalTickets
+            NormalTickets,
+            PlatinumTickets,
+            LegendTickets,
+            NP,
+            Leadership
         ])
     }
 
@@ -227,7 +272,16 @@ impl UIOption {
                 }
             };
         }
-        update![Catfood, Xp, NormalTickets, RareTickets]
+        update![
+            Catfood,
+            Xp,
+            NormalTickets,
+            RareTickets,
+            PlatinumTickets,
+            LegendTickets,
+            NP,
+            Leadership
+        ]
     }
 }
 

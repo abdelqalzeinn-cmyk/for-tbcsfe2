@@ -51,6 +51,10 @@ pub enum Edit {
     NormalTickets(basic_items::NormalTicketEdit),
     RareTickets(basic_items::RareTicketEdit),
     MainStory(main_story::StoryChaptersEdit),
+    PlatinumTickets(basic_items::PlatinumTicketEdit),
+    LegendTickets(basic_items::LegendTicketEdit),
+    NP(basic_items::NPEdit),
+    Leadership(basic_items::LeadershipEdit),
 }
 
 #[cfg(feature = "localization")]
@@ -87,7 +91,11 @@ impl Edit {
         MainStory => "main-story",
         InquiryCode => "inquiry-code",
         NormalTickets => "normal-tickets",
-        RareTickets => "rare-tickets"
+        RareTickets => "rare-tickets",
+        PlatinumTickets => "platinum-tickets",
+        LegendTickets => "legend-tickets",
+        NP => "np",
+        Leadership => "leadership"
     ];
 }
 
@@ -123,6 +131,10 @@ impl Applyable for Edit {
         MainStory,
         InquiryCode,
         NormalTickets,
-        RareTickets
+        RareTickets,
+        PlatinumTickets,
+        LegendTickets,
+        NP,
+        Leadership
     ];
 }

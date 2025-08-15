@@ -20,6 +20,57 @@ pub struct GV53Block {
     pub _53: Assertable<53>,
 }
 
+impl GV53Block {
+    /// returns the previous value if the index is valid
+    pub fn set_catseye(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(prev) = self.catseyes.0.get_mut(index) {
+            let tmp = *prev;
+
+            *prev = val;
+
+            Some(tmp)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_catseye(&self, index: usize) -> Option<i32> {
+        self.catseyes.0.get(index).map(|v| *v)
+    }
+    /// returns the previous value if the index is valid
+    pub fn set_catfruit(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(prev) = self.catfruit.0.get_mut(index) {
+            let tmp = *prev;
+
+            *prev = val;
+
+            Some(tmp)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_catfruit(&self, index: usize) -> Option<i32> {
+        self.catfruit.0.get(index).map(|v| *v)
+    }
+    /// returns the previous value if the index is valid
+    pub fn set_catamin(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(prev) = self.catamins.0.get_mut(index) {
+            let tmp = *prev;
+
+            *prev = val;
+
+            Some(tmp)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_catamin(&self, index: usize) -> Option<i32> {
+        self.catamins.0.get(index).map(|v| *v)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
 pub struct Gamatoto {
     pub remaining_seconds: f64,

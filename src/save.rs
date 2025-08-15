@@ -632,7 +632,123 @@ pub struct Save {
     pub remaing_data: RemainingData,
 }
 
+macro_rules! set_val_opt {
+    ($name:ident, $block:ident, $item:ident, $type:ty, $val:ty) => {
+        pub fn $name(&mut self, value: $val) {
+            if let Some(ref mut block) = self.$block {
+                block.$item = value;
+            } else {
+                let mut block = <$type>::default();
+                block.$item = value;
+                self.$block = Some(block);
+            }
+        }
+    };
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum BattleItem {
+    SpeedUp,
+    TreasureRadar,
+    RichCat,
+    CatCPU,
+    CatJobs,
+    SniperTheCat,
+}
+
+impl From<BattleItem> for usize {
+    fn from(value: BattleItem) -> Self {
+        match value {
+            BattleItem::SpeedUp => 0,
+            BattleItem::TreasureRadar => 1,
+            BattleItem::RichCat => 2,
+            BattleItem::CatCPU => 3,
+            BattleItem::CatJobs => 4,
+            BattleItem::SniperTheCat => 5,
+        }
+    }
+}
+
+impl BattleItem {
+    pub fn into_usize(self) -> usize {
+        self.into()
+    }
+}
+
+impl TryFrom<usize> for BattleItem {
+    type Error = String;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::SpeedUp,
+            1 => Self::TreasureRadar,
+            2 => Self::RichCat,
+            3 => Self::CatCPU,
+            4 => Self::CatJobs,
+            5 => Self::SniperTheCat,
+            _ => return Err(format!("invalid battle item type: {value}")),
+        })
+    }
+}
+
 impl Save {
+    pub fn get_catseye(&self, index: usize) -> Option<i32> {
+        self.gv_53.as_ref()?.get_catseye(index)
+    }
+    pub fn set_catseye(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(ref mut gv_53) = self.gv_53 {
+            gv_53.set_catseye(index, val)
+        } else {
+            let mut gv_53 = gv_53::GV53Block::default();
+            let res = gv_53.set_catseye(index, val);
+
+            self.gv_53 = Some(gv_53);
+
+            res
+        }
+    }
+    pub fn get_catfruit(&self, index: usize) -> Option<i32> {
+        self.gv_53.as_ref()?.get_catfruit(index)
+    }
+    pub fn set_catfruit(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(ref mut gv_53) = self.gv_53 {
+            gv_53.set_catfruit(index, val)
+        } else {
+            let mut gv_53 = gv_53::GV53Block::default();
+            let res = gv_53.set_catfruit(index, val);
+
+            self.gv_53 = Some(gv_53);
+
+            res
+        }
+    }
+    pub fn get_catamin(&self, index: usize) -> Option<i32> {
+        self.gv_53.as_ref()?.get_catamin(index)
+    }
+    pub fn set_catamin(&mut self, index: usize, val: i32) -> Option<i32> {
+        if let Some(ref mut gv_53) = self.gv_53 {
+            gv_53.set_catamin(index, val)
+        } else {
+            let mut gv_53 = gv_53::GV53Block::default();
+            let res = gv_53.set_catamin(index, val);
+
+            self.gv_53 = Some(gv_53);
+
+            res
+        }
+    }
+    pub fn get_battle_item(&self, item: BattleItem) -> i32 {
+        *self
+            .battle_items
+            .get(item.into_usize())
+            .expect("BattleItem::into_usize() returns a number between 0 and 5")
+    }
+    pub fn set_battle_item(&mut self, item: BattleItem, val: i32) {
+        *self
+            .battle_items
+            .get_mut(item.into_usize())
+            .expect("BattleItem::into_usize() returns a number between 0 and 5") = val;
+    }
+
     pub fn get_catfood(&self) -> i32 {
         self.catfood
     }
@@ -656,6 +772,9 @@ impl Save {
     }
     pub fn set_rare_tickets(&mut self, rare_tickets: i32) {
         self.rare_tickets = rare_tickets
+    }
+    pub fn get_platinum_shards(&self) -> Option<i32> {
+        self.gv_100600.as_ref().map(|v| v.platinum_shards)
     }
     pub fn get_inquiry_code(&self) -> Option<&str> {
         Some(&self.gv_44.as_ref()?.inquiry_code.0)
@@ -702,6 +821,43 @@ impl Save {
     pub fn get_platinum_tickets(&self) -> Option<i32> {
         self.gv_55.as_ref().map(|v| v.platinum_tickets)
     }
+    set_val_opt!(
+        set_platinum_shards,
+        gv_100600,
+        platinum_shards,
+        gv_100600::GV100600Block,
+        i32
+    );
+    set_val_opt!(
+        set_platinum_tickets,
+        gv_55,
+        platinum_tickets,
+        gv_55::GV55Block,
+        i32
+    );
+    set_val_opt!(
+        set_legend_tickets,
+        gv_100000,
+        legend_tickets,
+        gv_100000::GV100000Block,
+        i32
+    );
+
+    pub fn get_np(&self) -> Option<i32> {
+        self.gv_80000.as_ref().map(|v| v.np)
+    }
+    pub fn get_leadership(&self) -> Option<i16> {
+        self.gv_80200.as_ref().map(|v| v.leadership)
+    }
+    set_val_opt!(set_np, gv_80000, np, gv_80000::GV80000Block, i32);
+
+    set_val_opt!(
+        set_leadership,
+        gv_80200,
+        leadership,
+        gv_80200::GV80200Block,
+        i16
+    );
 
     pub fn get_play_time(&self) -> Option<i32> {
         self.gv_44.as_ref().map(|v| v.play_time)
