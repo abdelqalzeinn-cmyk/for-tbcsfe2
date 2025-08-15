@@ -17,7 +17,7 @@ use crate::{
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
         asset::AssetManager,
-        catfood::{CatfoodView, XPView},
+        catfood::{CatfoodView, NormalTicketView, RareTicketView, XPView},
         editview::{BasicItemMessage, BasicItemView, EditLog, EditViewable},
         loadsave::{LoadSave, LoadSaveMsg, LoadedSaveFile},
         mainstory::{MainStory, MainStoryMsg},
@@ -42,6 +42,8 @@ pub enum UIOption {
     SaveSave(SaveSave),
     Catfood(BasicItemView<CatfoodView>),
     Xp(BasicItemView<XPView>),
+    NormalTickets(BasicItemView<NormalTicketView>),
+    RareTickets(BasicItemView<RareTicketView>),
     MainStory(MainStory),
     EditLog(EditLog),
 }
@@ -54,24 +56,28 @@ pub enum UIType {
     Xp,
     MainStory,
     EditLog,
+    NormalTickets,
+    RareTickets,
 }
 
 impl UIType {
     async fn to_opt(self) -> UIOption {
         macro_rules! matches_opt {
-            [$($var:ident => $type:ty),+] => {
+            [$($var:ident => $type:ident),+] => {
                 match self {
-                    $(UIType::$var => UIOption::$var(<$type>::new().await),)+
+                    $(UIType::$var => UIOption::$var($type::new().await),)+
                 }
             };
         }
         matches_opt![
             LoadSave => LoadSave,
             SaveSave => SaveSave,
-            Catfood => BasicItemView<CatfoodView>,
-            Xp => BasicItemView<XPView>,
+            Catfood => BasicItemView,
+            Xp => BasicItemView,
             MainStory => MainStory,
-            EditLog => EditLog
+            EditLog => EditLog,
+            NormalTickets => BasicItemView,
+            RareTickets => BasicItemView
         ]
     }
 }
@@ -84,7 +90,16 @@ impl From<&UIOption> for UIType {
                 }
             };
         }
-        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog]
+        matches_opt![
+            LoadSave,
+            SaveSave,
+            Catfood,
+            Xp,
+            MainStory,
+            EditLog,
+            NormalTickets,
+            RareTickets
+        ]
     }
 }
 impl UIType {
@@ -94,6 +109,8 @@ impl UIType {
             Self::SaveSave,
             Self::Catfood,
             Self::Xp,
+            Self::NormalTickets,
+            Self::RareTickets,
             Self::MainStory,
             Self::EditLog,
         ]
@@ -107,7 +124,16 @@ impl UIType {
                 }
             };
         }
-        matches_opt![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog]
+        matches_opt![
+            LoadSave,
+            SaveSave,
+            Catfood,
+            Xp,
+            MainStory,
+            EditLog,
+            NormalTickets,
+            RareTickets
+        ]
     }
 
     pub fn get_str(&self) -> &'static str {
@@ -124,7 +150,9 @@ impl UIType {
             SaveSave => "save-save",
             Xp => "xp",
             MainStory => "main-story",
-            EditLog => "edit-log"
+            EditLog => "edit-log",
+            NormalTickets => "normal-tickets",
+            RareTickets => "rare-tickets"
         ]
     }
 
@@ -148,7 +176,7 @@ impl UIOption {
                     }
                 };
             }
-            init![Catfood, Xp, MainStory];
+            init![Catfood, Xp, MainStory, NormalTickets, RareTickets];
             if let UIOption::SaveSave(save_save) = self {
                 return save_save.init(save_file);
             }
@@ -174,7 +202,16 @@ impl UIOption {
                 }
             };
         }
-        Some(view![LoadSave, SaveSave, Catfood, Xp, MainStory, EditLog])
+        Some(view![
+            LoadSave,
+            SaveSave,
+            Catfood,
+            Xp,
+            MainStory,
+            EditLog,
+            RareTickets,
+            NormalTickets
+        ])
     }
 
     pub fn update_basic_item(
@@ -182,11 +219,15 @@ impl UIOption {
         msg: BasicItemMessage,
         locale_manager: &LocaleManager,
     ) -> Task<Message> {
-        match self {
-            UIOption::Catfood(basic_item_view) => basic_item_view.update(msg, locale_manager),
-            UIOption::Xp(basic_item_view) => basic_item_view.update(msg, locale_manager),
-            _ => Task::none(),
+        macro_rules! update {
+            [$($var:ident),+] => {
+                match self {
+                    $(UIOption::$var(view) => view.update(msg, locale_manager),)+
+                    _ => Task::none()
+                }
+            };
         }
+        update![Catfood, Xp, NormalTickets, RareTickets]
     }
 }
 

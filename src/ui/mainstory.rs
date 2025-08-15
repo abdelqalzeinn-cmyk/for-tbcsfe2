@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
+use crate::edits::main_story::{ClearStoryChapters, StoryChaptersEdit};
 use crate::localization::{LocaleManager, Localizable};
 use crate::{
-    edits::{ClearStoryChapters, StoryChaptersEdit},
     game::main_story::{
         InnerChapterType, StageId, StoryChapterType, StoryChapters, StoryStage, TOTAL_INGAME_STAGES,
     },

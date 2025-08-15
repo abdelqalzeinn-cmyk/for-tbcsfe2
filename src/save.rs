@@ -633,6 +633,30 @@ pub struct Save {
 }
 
 impl Save {
+    pub fn get_catfood(&self) -> i32 {
+        self.catfood
+    }
+    pub fn set_catfood(&mut self, catfood: i32) {
+        self.catfood = catfood;
+    }
+    pub fn get_xp(&self) -> i32 {
+        self.xp
+    }
+    pub fn set_xp(&mut self, xp: i32) {
+        self.xp = xp;
+    }
+    pub fn get_normal_tickets(&self) -> i32 {
+        self.normal_tickets
+    }
+    pub fn set_normal_tickets(&mut self, normal_tickets: i32) {
+        self.normal_tickets = normal_tickets;
+    }
+    pub fn get_rare_tickets(&self) -> i32 {
+        self.rare_tickets
+    }
+    pub fn set_rare_tickets(&mut self, rare_tickets: i32) {
+        self.rare_tickets = rare_tickets
+    }
     pub fn get_inquiry_code(&self) -> Option<&str> {
         Some(&self.gv_44.as_ref()?.inquiry_code.0)
     }

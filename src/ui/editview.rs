@@ -86,6 +86,8 @@ pub enum BasicItemMessage {
 pub enum BasicItemFeature {
     Catfood,
     Xp,
+    NormalTickets,
+    RareTickets,
 }
 
 impl Display for BasicItemFeature {
@@ -94,8 +96,10 @@ impl Display for BasicItemFeature {
             f,
             "{}",
             match self {
-                BasicItemFeature::Catfood => "Catfood",
-                BasicItemFeature::Xp => "XP",
+                BasicItemFeature::Catfood => "catfood",
+                BasicItemFeature::Xp => "xp",
+                BasicItemFeature::NormalTickets => "normal-tickets",
+                BasicItemFeature::RareTickets => "rare-tickets",
             }
         )
     }
