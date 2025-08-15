@@ -14,7 +14,7 @@ Features which are marked as ~strike-through~ are completed.
 ### Save Management
 
 #### Loading a Save
-- ~Load from file~
+~- Load from file~
 - ~Load from transfer codes~
 - ~Pull from adb / waydroid~
 - Load from root storage
