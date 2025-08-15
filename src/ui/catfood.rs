@@ -1,8 +1,5 @@
 use crate::{
-    edits::{Edit, EditMemory, basic_items::XPEdit},
-    network::account_info::SaveFileAccount,
-    save::Save,
-    ui::editview::BasicItem,
+    edits::EditMemory, network::account_info::SaveFileAccount, save::Save, ui::editview::BasicItem,
 };
 
 macro_rules! impl_basic_item {
