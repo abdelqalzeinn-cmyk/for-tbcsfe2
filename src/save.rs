@@ -407,7 +407,7 @@ pub struct Save {
     pub ios_android_month: i32,
     pub ui10: i32,
     pub save_data_4_hash: LengthString<i32>,
-    pub bonus_hash: BonusHash,
+    pub event_item_data: EventItemData,
     pub chara_flags: [i32; 2],
     #[rw(max_gv = 37)]
     pub uib: Option<(i32, bool)>,
@@ -2015,9 +2015,9 @@ impl Writable for CatStorage {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
-pub struct BonusHash {
-    pub unknown_1: HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>,
-    pub unknown_2: HashMapLength<VariableLengthInt, VariableLengthInt, u8>,
+pub struct EventItemData {
+    pub values: HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>,
+    pub flags: HashMapLength<VariableLengthInt, VariableLengthInt, bool>,
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
