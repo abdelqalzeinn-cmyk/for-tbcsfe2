@@ -1,6 +1,6 @@
 # bcsfe_rs
 
-A rust port of <https://github.com/fieryhenry/BCSFE-Python> with a GUI.
+A rust port of <https://codeberg.org/fieryhenry/BCSFE-Python> with a GUI.
 
 Note: this project is quite early on in development, so there will be many features missing.
 
