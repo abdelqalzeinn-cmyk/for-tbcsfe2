@@ -471,7 +471,7 @@ impl ApplicationState {
                 .style(bordered_box)
                 .width(Length::FillPortion(8))
                 .height(Length::Fill)
-                .padding(5)
+                .padding(10)
                 .into();
 
             pannel2.push(second_pannel);
