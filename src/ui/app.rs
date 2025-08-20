@@ -357,7 +357,7 @@ impl ApplicationState {
                     save.codes = Some(c)
                 }
             }
-            Message::Edit(edit) => self.current_edits.push(edit),
+            Message::Edit(edit) => self.current_edits.extend(edit),
             Message::Search(s) => self.searched_feature = s,
         };
         Task::none()
@@ -531,7 +531,7 @@ impl ApplicationState {
 #[derive(Debug, Clone)]
 pub enum Message {
     Init,
-    Edit(crate::edits::Edit),
+    Edit(Vec<crate::edits::Edit>),
     LoadedSave(Box<LoadedSaveFile>),
     ChangePane(UIType),
     LoadSave(LoadSaveMsg),

@@ -190,6 +190,25 @@ impl StoryChapterType {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct StageId(u8);
 
+impl StageId {
+    pub fn previous(self) -> Option<Self> {
+        if self.0 == 0 {
+            None
+        } else {
+            Some(Self(self.0 - 1))
+        }
+    }
+    pub fn previous_saturating(self) -> Self {
+        self.previous().unwrap_or(self)
+    }
+    pub fn next(self) -> Option<Self> {
+        Self::new(self.0 + 1)
+    }
+    pub fn next_saturating(self) -> Self {
+        self.next().unwrap_or(self)
+    }
+}
+
 impl FromStr for StageId {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -211,6 +230,12 @@ impl From<StageId> for usize {
         value.0 as usize
     }
 }
+impl TryFrom<usize> for StageId {
+    type Error = String;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Self::new(value as u8).ok_or(format!("invalid stage id: {value}"))
+    }
+}
 impl From<StageId> for i32 {
     fn from(value: StageId) -> Self {
         value.0 as i32
@@ -228,6 +253,13 @@ impl StageId {
 
     pub fn into_usize(self) -> usize {
         self.into()
+    }
+
+    pub fn iter_to_end(self) -> impl Iterator<Item = Self> {
+        (self.0..(TOTAL_STORY_STAGES as u8)).map(|id| Self(id))
+    }
+    pub fn iter_from_start(self) -> impl Iterator<Item = Self> {
+        (0..=(self.0)).map(|id| Self(id))
     }
 }
 
@@ -274,6 +306,20 @@ impl StoryStage {
         )
         .localize(manager)
     }
+
+    pub fn previous(&self) -> Option<StoryStage> {
+        self.stage_id.previous().map(|v| Self {
+            chapter: self.chapter,
+            stage_id: v,
+        })
+    }
+
+    pub fn previous_saturating(&self) -> Self {
+        Self {
+            chapter: self.chapter,
+            stage_id: self.stage_id.previous_saturating(),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -281,7 +327,6 @@ pub struct ClearStageOptions {
     pub stage: StoryStage,
     pub clear_amount: i32,
     pub progress_type: ProgressType,
-    pub add_to_clears: bool,
 }
 
 impl ClearStageOptions {
@@ -289,19 +334,10 @@ impl ClearStageOptions {
         Self {
             stage: self.stage,
             clear_amount,
-            add_to_clears: self.add_to_clears,
             progress_type: self.progress_type,
         }
     }
 
-    pub fn with_add_to_clears(self, add_to_clears: bool) -> Self {
-        Self {
-            stage: self.stage,
-            clear_amount: self.clear_amount,
-            add_to_clears,
-            progress_type: self.progress_type,
-        }
-    }
     pub fn with_chapter(self, chapter: StoryChapterType) -> Self {
         Self {
             stage: StoryStage {
@@ -309,7 +345,6 @@ impl ClearStageOptions {
                 stage_id: self.stage.stage_id,
             },
             clear_amount: self.clear_amount,
-            add_to_clears: self.add_to_clears,
             progress_type: self.progress_type,
         }
     }
@@ -320,7 +355,6 @@ impl ClearStageOptions {
                 stage_id,
             },
             clear_amount: self.clear_amount,
-            add_to_clears: self.add_to_clears,
             progress_type: self.progress_type,
         }
     }
@@ -328,7 +362,6 @@ impl ClearStageOptions {
         Self {
             stage,
             clear_amount: self.clear_amount,
-            add_to_clears: self.add_to_clears,
             progress_type: self.progress_type,
         }
     }
@@ -336,7 +369,6 @@ impl ClearStageOptions {
         Self {
             stage: self.stage,
             clear_amount: self.clear_amount,
-            add_to_clears: self.add_to_clears,
             progress_type: progress,
         }
     }
@@ -348,7 +380,6 @@ impl Default for ClearStageOptions {
             stage: StoryStage::default(),
             clear_amount: 1,
             progress_type: ProgressType::default(),
-            add_to_clears: false,
         }
     }
 }
@@ -357,7 +388,6 @@ impl Default for ClearStageOptions {
 pub struct ClearChapterOptions {
     pub chapter: StoryChapterType,
     pub clear_amount: i32,
-    pub add_to_clears: bool,
 }
 
 impl ClearChapterOptions {
@@ -365,22 +395,13 @@ impl ClearChapterOptions {
         Self {
             chapter: self.chapter,
             clear_amount,
-            add_to_clears: self.add_to_clears,
         }
     }
 
-    pub fn with_add_to_clears(self, add_to_clears: bool) -> Self {
-        Self {
-            chapter: self.chapter,
-            clear_amount: self.clear_amount,
-            add_to_clears,
-        }
-    }
     pub fn with_chapter(self, chapter: StoryChapterType) -> Self {
         Self {
             chapter,
             clear_amount: self.clear_amount,
-            add_to_clears: self.add_to_clears,
         }
     }
 }
@@ -390,46 +411,31 @@ impl Default for ClearChapterOptions {
         Self {
             chapter: StoryChapterType::default(),
             clear_amount: 1,
-            add_to_clears: false,
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum ProgressType {
-    AlwaysSetProgress,
     #[default]
+    AlwaysSetProgress,
     OnlySetProgressIfLaterStage,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClearAllChaptersOptions {
     pub clear_amount: i32,
-    pub add_to_clears: bool,
 }
 
 impl Default for ClearAllChaptersOptions {
     fn default() -> Self {
-        Self {
-            clear_amount: 1,
-            add_to_clears: false,
-        }
+        Self { clear_amount: 1 }
     }
 }
 
 impl ClearAllChaptersOptions {
     pub fn with_clear_amount(self, clear_amount: i32) -> Self {
-        Self {
-            clear_amount,
-            add_to_clears: self.add_to_clears,
-        }
-    }
-
-    pub fn with_add_to_clears(self, add_to_clears: bool) -> Self {
-        Self {
-            clear_amount: self.clear_amount,
-            add_to_clears,
-        }
+        Self { clear_amount }
     }
 }
 
@@ -439,7 +445,6 @@ impl StoryChapters {
             self.clear_chapter(ClearChapterOptions {
                 chapter,
                 clear_amount: opts.clear_amount,
-                add_to_clears: opts.add_to_clears,
             });
         }
     }
@@ -453,21 +458,22 @@ impl StoryChapters {
                 },
                 clear_amount: opts.clear_amount,
                 progress_type: ProgressType::AlwaysSetProgress,
-                add_to_clears: opts.add_to_clears,
             });
         }
     }
     pub fn clear_stage(&mut self, opts: ClearStageOptions) {
+        let chap_progress = if opts.clear_amount == 0 {
+            opts.stage.previous_saturating()
+        } else {
+            opts.stage
+        };
         match opts.progress_type {
-            ProgressType::AlwaysSetProgress => self.set_chapter_progress(opts.stage),
+            ProgressType::AlwaysSetProgress => self.set_chapter_progress(chap_progress),
             ProgressType::OnlySetProgressIfLaterStage => {
-                self.add_chapter_progress(opts.stage);
+                self.add_chapter_progress(chap_progress);
             }
         };
-        match opts.add_to_clears {
-            true => self.add_clear_amount(opts.stage, opts.clear_amount),
-            false => self.set_clear_amount(opts.stage, opts.clear_amount),
-        }
+        self.set_clear_amount(opts.stage, opts.clear_amount);
     }
     pub fn add_chapter_progress(&mut self, stage: StoryStage) -> bool {
         let current = self.get_chapter_progress(stage.chapter);
@@ -507,7 +513,9 @@ impl StoryChapters {
     }
 
     pub fn add_clear_amount(&mut self, stage: StoryStage, amount: i32) {
-        self.set_clear_amount(stage, self.get_clear_amount(stage).saturating_add(amount));
+        if self.get_clear_amount(stage) == 0 {
+            self.set_clear_amount(stage, amount);
+        }
     }
     pub fn set_clear_amount(&mut self, stage: StoryStage, amount: i32) {
         let stages = self

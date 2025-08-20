@@ -58,6 +58,8 @@ impl MainStory {
 
         let searched_value = self.get_stage_search(chapter_id);
 
+        let mut all_cleared_so_far = true;
+
         for stage_index in 0..TOTAL_INGAME_STAGES {
             let stage_id = StageId::new(stage_index as u8);
 
@@ -65,18 +67,41 @@ impl MainStory {
                 let stage = StoryStage::new(chapter_id, stage_id);
                 let key = stage.localize_stage(locale_manager);
 
-                if !key.to_lowercase().contains(&searched_value.to_lowercase()) {
+                if !(stage_index + 1)
+                    .to_string()
+                    .contains(&searched_value.to_lowercase())
+                    && !key.to_lowercase().contains(&searched_value.to_lowercase())
+                {
                     continue;
                 }
 
-                let label = iced::widget::text(key)
-                    .width(Length::Fill)
+                let num = iced::widget::text(stage_index + 1)
+                    .width(Length::FillPortion(1))
                     .height(Length::Fill)
                     .align_y(Vertical::Center);
 
+                let label = iced::widget::text(key)
+                    .width(Length::FillPortion(4))
+                    .height(Length::Fill)
+                    .align_y(Vertical::Center);
+
+                let clear_up_to =
+                    iced::widget::button(iced::widget::text("clear".localize(locale_manager)))
+                        .on_press(Message::MainStory(MainStoryMsg::ClearUpTo(stage)));
+                let unclear_down_to =
+                    iced::widget::button(iced::widget::text("unclear".localize(locale_manager)))
+                        .on_press(Message::MainStory(MainStoryMsg::UnClearDownTo(stage)));
+
                 let clear_count = self.get_input(stage);
 
+                let clear_amount = self.story.get_clear_amount(stage);
+
+                if clear_amount == 0 {
+                    all_cleared_so_far = false;
+                }
+
                 let clear_count_entry = iced::widget::text_input(&clear_count_label, &clear_count)
+                    .width(Length::FillPortion(4))
                     .on_input(move |i| {
                         Message::MainStory(MainStoryMsg::EditClearCountStages(i, stage))
                     })
@@ -88,9 +113,18 @@ impl MainStory {
                         None
                     });
 
-                let row = iced::widget::row([label.into(), clear_count_entry.into()])
-                    .spacing(10)
-                    .height(32);
+                let mut row_data = vec![num.into(), label.into()];
+
+                if !all_cleared_so_far {
+                    row_data.push(clear_up_to.into());
+                }
+                if clear_amount != 0 {
+                    row_data.push(unclear_down_to.into());
+                }
+
+                row_data.push(clear_count_entry.into());
+
+                let row = iced::widget::row(row_data).spacing(10).height(32);
 
                 let len = stage_cols.len();
 
@@ -280,6 +314,8 @@ pub enum MainStoryMsg {
     EditClearCountStages(String, StoryStage),
     SubmitClearAmountStages(StoryStage),
     SearchStage(String, StoryChapterType),
+    ClearUpTo(StoryStage),
+    UnClearDownTo(StoryStage),
 }
 
 impl EditViewable for MainStory {
@@ -326,7 +362,7 @@ impl EditViewable for MainStory {
                 }
             }
             MainStoryMsg::ClearChapters => {
-                let mut msg = Task::none();
+                let mut edits = Vec::with_capacity(self.selected_chapters.len());
                 for (i, selected) in self.selected_chapters.iter().enumerate() {
                     if *selected {
                         let opts = crate::game::main_story::ClearChapterOptions {
@@ -336,20 +372,18 @@ impl EditViewable for MainStory {
                                 .clear_count_chapters
                                 .parse()
                                 .expect("clear count was valid"),
-                            add_to_clears: false,
                         };
                         self.story.clear_chapter(opts);
-                        msg = msg.chain(Task::done(Message::Edit(
-                            StoryChaptersEdit(crate::edits::EditMemory::new(
+                        edits.push(crate::edits::Edit::MainStory(StoryChaptersEdit(
+                            crate::edits::EditMemory::new(
                                 ClearStoryChapters::ClearChapter(opts),
                                 self.story,
-                            ))
-                            .into(), // TODO: group each chapter?
+                            ),
                         )));
                     }
                 }
 
-                return msg.chain(Task::done(Message::Notif(
+                return Task::done(Message::Edit(edits)).chain(Task::done(Message::Notif(
                     "cleared story chapters".to_string(),
                 )));
             }
@@ -362,17 +396,67 @@ impl EditViewable for MainStory {
                 let opts = ClearStageOptions::default()
                     .with_stage(story_stage)
                     .with_clear_amount(clear_amount);
-                self.story.clear_stage(opts);
-                self.inputs.remove(&story_stage);
-                return Task::done(Message::Edit(
+                let mut edits = vec![
                     StoryChaptersEdit(EditMemory::new(
                         ClearStoryChapters::ClearStage(opts),
                         self.story,
                     ))
                     .into(),
-                ))
-                .chain(Task::done(Message::Notif(
-                    "cleared-stage".localize_with_args(
+                ];
+                self.story.clear_stage(opts);
+                self.inputs.remove(&story_stage);
+
+                if clear_amount != 0 {
+                    for stage_index in story_stage.stage_id.iter_from_start() {
+                        let story_stage2 = StoryStage {
+                            chapter: story_stage.chapter,
+                            stage_id: stage_index,
+                        };
+                        if self.story.get_clear_amount(story_stage2) != 0 {
+                            continue;
+                        }
+                        let opts2 = ClearStageOptions::default()
+                            .with_stage(story_stage2)
+                            .with_clear_amount(clear_amount);
+                        edits.push(
+                            StoryChaptersEdit(EditMemory::new(
+                                ClearStoryChapters::ClearStage(opts2),
+                                self.story,
+                            ))
+                            .into(),
+                        );
+                        self.story.clear_stage(opts2);
+                    }
+                } else {
+                    for stage_index in story_stage.stage_id.iter_to_end() {
+                        let story_stage2 = StoryStage {
+                            chapter: story_stage.chapter,
+                            stage_id: stage_index,
+                        };
+                        if self.story.get_clear_amount(story_stage2) == 0 {
+                            continue;
+                        }
+                        let opts2 = ClearStageOptions::default()
+                            .with_stage(story_stage2)
+                            .with_clear_amount(0);
+                        edits.push(
+                            StoryChaptersEdit(EditMemory::new(
+                                ClearStoryChapters::ClearStage(opts2),
+                                self.story,
+                            ))
+                            .into(),
+                        );
+                        self.story.clear_stage(opts2);
+                    }
+                }
+
+                return Task::done(Message::Edit(edits)).chain(Task::done(Message::Notif(
+                    if clear_amount == 0 {
+                        "uncleared-stage"
+                    } else {
+                        "cleared-stage"
+                    }
+                    .localize_with_args(
                         locale_manager,
                         &FluentArgs::from_iter([
                             ("chapter", story_stage.chapter.localize(locale_manager)),
@@ -383,6 +467,64 @@ impl EditViewable for MainStory {
             }
             MainStoryMsg::SearchStage(v, story_chapter_type) => {
                 self.stage_searches.insert(story_chapter_type, v);
+            }
+            MainStoryMsg::ClearUpTo(stage_id) => {
+                let mut edits = Vec::new();
+                for stage in stage_id.stage_id.iter_from_start() {
+                    let story_stage = StoryStage {
+                        chapter: stage_id.chapter,
+                        stage_id: stage,
+                    };
+                    if self.story.get_clear_amount(story_stage) == 0 {
+                        let opt = ClearStageOptions::default().with_stage(story_stage);
+
+                        edits.push(crate::edits::Edit::MainStory(StoryChaptersEdit(
+                            EditMemory {
+                                new: ClearStoryChapters::ClearStage(opt),
+                                old: self.story,
+                            },
+                        )));
+                        self.story.clear_stage(opt);
+                    }
+                }
+
+                return Task::done(Message::Edit(edits)).chain(Task::done(Message::Notif(
+                    "cleared-stage-up-to".localize_with_args(
+                        locale_manager,
+                        &FluentArgs::from_iter([
+                            ("chapter", stage_id.chapter.localize(locale_manager)),
+                            ("stage", stage_id.localize_stage(locale_manager)),
+                        ]),
+                    ),
+                )));
+            }
+            MainStoryMsg::UnClearDownTo(stage) => {
+                let mut edits = Vec::new();
+                for stage_index in stage.stage_id.iter_to_end() {
+                    let stage_id: StageId = stage_index.try_into().expect("stage id is valid");
+                    let opt = ClearStageOptions::default()
+                        .with_chapter(stage.chapter)
+                        .with_clear_amount(0)
+                        .with_stage_id(stage_id);
+
+                    edits.push(crate::edits::Edit::MainStory(StoryChaptersEdit(
+                        EditMemory {
+                            new: ClearStoryChapters::ClearStage(opt),
+                            old: self.story,
+                        },
+                    )));
+                    self.story.clear_stage(opt);
+                }
+
+                return Task::done(Message::Edit(edits)).chain(Task::done(Message::Notif(
+                    "uncleared-stage-down-to".localize_with_args(
+                        locale_manager,
+                        &FluentArgs::from_iter([
+                            ("chapter", stage.chapter.localize(locale_manager)),
+                            ("stage", stage.localize_stage(locale_manager)),
+                        ]),
+                    ),
+                )));
             }
         };
 

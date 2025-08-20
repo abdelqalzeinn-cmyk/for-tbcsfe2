@@ -88,5 +88,14 @@ edit-log = Edit Log
 filter = Filter
 
 cleared-stage = Cleared { $stage } in { $chapter }
+uncleared-stage = Uncleared { $stage } in { $chapter }
 
 stage-clear = Clear Individual Stages
+
+clear-stage = Clear Stage
+
+cleared-stage-up-to = Cleared { $chapter } up to and including { $stage }
+uncleared-stage-down-to = Uncleared { $chapter }  down to and including { $stage }
+
+clear = Clear
+unclear = Unclear
