@@ -2020,6 +2020,21 @@ pub struct EventItemData {
     pub flags: HashMapLength<VariableLengthInt, VariableLengthInt, bool>,
 }
 
+impl EventItemData {
+    pub fn set_value(&mut self, event_number: u32, value: u32) {
+        self.values.0.insert(event_number.into(), value.into());
+    }
+    pub fn get_value(&self, event_number: u32) -> Option<u32> {
+        self.values.0.get(&event_number.into()).map(|v| v.0)
+    }
+    pub fn set_flag(&mut self, event_number: u32, flag: bool) {
+        self.flags.0.insert(event_number.into(), flag);
+    }
+    pub fn get_flag(&self, event_number: u32) -> Option<bool> {
+        self.flags.0.get(&event_number.into()).map(|v| *v)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
 pub struct StoryTreasureFestival {
     pub time_until_chance: [i32; TOTAL_STORY_CHAPTERS],
