@@ -84,9 +84,33 @@ impl FromStr for StoryChapterTypeOuter {
     }
 }
 
+impl std::fmt::Display for StoryChapterTypeOuter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                StoryChapterTypeOuter::Eoc => "eoc",
+                StoryChapterTypeOuter::Itf => "itf",
+                StoryChapterTypeOuter::Cotc => "cotc",
+            }
+        )
+    }
+}
+
 impl Default for StoryChapterType {
     fn default() -> Self {
         Self::Eoc(InnerChapterType::default())
+    }
+}
+
+impl StoryChapterType {
+    pub fn into_outer(self) -> StoryChapterTypeOuter {
+        match self {
+            StoryChapterType::Eoc(_) => StoryChapterTypeOuter::Eoc,
+            StoryChapterType::Itf(_) => StoryChapterTypeOuter::Itf,
+            StoryChapterType::Cotc(_) => StoryChapterTypeOuter::Cotc,
+        }
     }
 }
 
@@ -237,6 +261,18 @@ pub struct StoryStage {
 impl StoryStage {
     pub fn new(chapter: StoryChapterType, stage_id: StageId) -> Self {
         Self { chapter, stage_id }
+    }
+
+    #[cfg(feature = "localization")]
+    pub fn localize_stage(&self, manager: &crate::localization::LocaleManager) -> String {
+        use crate::localization::Localizable;
+
+        format!(
+            "chapter-{}-stage-{}",
+            self.chapter.into_outer(),
+            self.stage_id.into_usize() + 1
+        )
+        .localize(manager)
     }
 }
 

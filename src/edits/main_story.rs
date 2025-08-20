@@ -21,20 +21,15 @@ impl crate::localization::Localizable for ClearStoryChapters {
         _args: &fluent::FluentArgs,
     ) -> String {
         match self {
-            ClearStoryChapters::ClearStage(clear_stage_options) => "clear-stage"
+            ClearStoryChapters::ClearStage(clear_stage_options) => "cleared-stage"
                 .localize_with_args(
                     manager,
                     &fluent::FluentArgs::from_iter([
                         (
                             "chapter",
-                            fluent::FluentValue::from(
-                                clear_stage_options.stage.chapter.localize(manager),
-                            ),
+                            clear_stage_options.stage.chapter.localize(manager),
                         ),
-                        (
-                            "stage",
-                            clear_stage_options.stage.stage_id.into_usize().into(),
-                        ),
+                        ("stage", clear_stage_options.stage.localize_stage(manager)),
                     ]),
                 ),
             ClearStoryChapters::ClearChapter(clear_chapter_options) => "clear-chapter"

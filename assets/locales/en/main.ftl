@@ -16,16 +16,6 @@ set-max = Set To Max Value
 
 set-x-to-x = Set { $feature } to { $value }
 
-chapter-1 = Empire of Cats 1
-chapter-2 = Empire of Cats 2
-chapter-3 = Empire of Cats 3
-chapter-4 = Into the Future 1
-chapter-5 = Into the Future 2
-chapter-6 = Into the Future 3
-chapter-7 = Cats of the Cosmos 1
-chapter-8 = Cats of the Cosmos 2
-chapter-9 = Cats of the Cosmos 3
-
 clear-all-selected-chapters = Clear All Selected Chapters
 clear-count = Clear Count
 toggle-select-all = Toggle Select All
@@ -96,3 +86,7 @@ np = NP
 edit-log = Edit Log
 
 filter = Filter
+
+cleared-stage = Cleared { $stage } in { $chapter }
+
+stage-clear = Clear Individual Stages

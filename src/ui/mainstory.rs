@@ -1,8 +1,13 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
+use fluent::{FluentArgs, FluentValue};
+use iced::Border;
 use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
+use crate::edits::EditMemory;
 use crate::edits::main_story::{ClearStoryChapters, StoryChaptersEdit};
+use crate::game::main_story::ClearStageOptions;
 use crate::localization::{LocaleManager, Localizable};
 use crate::{
     game::main_story::{
@@ -17,6 +22,8 @@ pub struct MainStory {
     selected_chapters: [bool; 9],
     clear_count_chapters: String,
     story: StoryChapters,
+    inputs: HashMap<StoryStage, String>,
+    stage_searches: HashMap<StoryChapterType, String>,
 }
 
 impl MainStory {
@@ -25,7 +32,16 @@ impl MainStory {
             selected_chapters: [false; 9],
             clear_count_chapters: 1.to_string(),
             story: StoryChapters::default(),
+            inputs: HashMap::new(),
+            stage_searches: HashMap::new(),
         }
+    }
+
+    fn get_input(&self, id: StoryStage) -> String {
+        self.inputs
+            .get(&id)
+            .cloned()
+            .unwrap_or(self.story.get_clear_amount(id).to_string())
     }
 
     fn view_stage_clear_pannel(
@@ -40,39 +56,85 @@ impl MainStory {
         let progress = self.story.get_chapter_progress(chapter_id);
         let clear_count_label = "clear-count".localize(locale_manager);
 
+        let searched_value = self.get_stage_search(chapter_id);
+
         for stage_index in 0..TOTAL_INGAME_STAGES {
             let stage_id = StageId::new(stage_index as u8);
 
             if let Some(stage_id) = stage_id {
                 let stage = StoryStage::new(chapter_id, stage_id);
-                let key = format!("stage-{stage_index}");
-                let label =
-                    iced::widget::text(key).color_maybe(if progress as usize >= stage_index {
-                        Some(theme.palette().success)
+                let key = stage.localize_stage(locale_manager);
+
+                if !key.to_lowercase().contains(&searched_value.to_lowercase()) {
+                    continue;
+                }
+
+                let label = iced::widget::text(key)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_y(Vertical::Center);
+
+                let clear_count = self.get_input(stage);
+
+                let clear_count_entry = iced::widget::text_input(&clear_count_label, &clear_count)
+                    .on_input(move |i| {
+                        Message::MainStory(MainStoryMsg::EditClearCountStages(i, stage))
+                    })
+                    .on_submit_maybe(if clear_count.parse::<i32>().is_ok() {
+                        Some(Message::MainStory(MainStoryMsg::SubmitClearAmountStages(
+                            stage,
+                        )))
                     } else {
                         None
                     });
 
-                let clear_count = self.story.get_clear_amount(stage);
+                let row = iced::widget::row([label.into(), clear_count_entry.into()])
+                    .spacing(10)
+                    .height(32);
 
-                let clear_count_entry =
-                    iced::widget::text_input(&clear_count_label, &clear_count.to_string());
+                let len = stage_cols.len();
 
                 stage_cols.push(
-                    iced::widget::row([label.into(), clear_count_entry.into()])
-                        .spacing(10)
+                    iced::widget::container(row)
+                        .style(move |t| {
+                            bordered_box(t)
+                                .background(match len.is_multiple_of(2) {
+                                    true => t.extended_palette().background.weak.color,
+                                    false => t.extended_palette().background.strong.color,
+                                })
+                                .border(Border::default())
+                        })
+                        .padding(5)
+                        // .height(Length::Shrink)
                         .into(),
                 );
             }
         }
 
-        let scroll_area = iced::widget::scrollable(iced::widget::column(stage_cols)).spacing(10);
+        let scroll_area = iced::widget::scrollable(iced::widget::column(stage_cols))
+            .spacing(10)
+            .width(Length::Fill);
+
+        let search_box = iced::widget::text_input(
+            &"filter".localize(locale_manager),
+            &self.get_stage_search(chapter_id),
+        )
+        .on_input(move |s| Message::MainStory(MainStoryMsg::SearchStage(s, chapter_id)));
 
         labeled_box(
             theme,
             "stage-clear".localize(locale_manager),
-            scroll_area.width(Length::Fill).into(),
+            iced::widget::column([search_box.into(), scroll_area.into()])
+                .spacing(10)
+                .into(),
         )
+    }
+
+    fn get_stage_search(&self, chapter: StoryChapterType) -> String {
+        self.stage_searches
+            .get(&chapter)
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn view_select_chapter_pannel(
@@ -215,6 +277,9 @@ pub enum MainStoryMsg {
     ToggleAll,
     ClearChapters,
     EditClearCountChapters(String),
+    EditClearCountStages(String, StoryStage),
+    SubmitClearAmountStages(StoryStage),
+    SearchStage(String, StoryChapterType),
 }
 
 impl EditViewable for MainStory {
@@ -238,7 +303,9 @@ impl EditViewable for MainStory {
             StoryChapterType::Eoc(InnerChapterType::First),
         );
 
-        let edit_pannel = iced::widget::column([clear_chapters_pannel, clear_stages_pannel]).into();
+        let edit_pannel = iced::widget::column([clear_chapters_pannel, clear_stages_pannel])
+            .spacing(10)
+            .into();
 
         iced::widget::column([select_pannel, edit_pannel])
             .spacing(10)
@@ -247,7 +314,7 @@ impl EditViewable for MainStory {
     fn update(
         &mut self,
         message: Self::Message,
-        _locale_manager: &LocaleManager,
+        locale_manager: &LocaleManager,
     ) -> iced::Task<super::app::Message> {
         match message {
             MainStoryMsg::SelectChapter(ind, enabled) => self.selected_chapters[ind] = enabled,
@@ -271,6 +338,7 @@ impl EditViewable for MainStory {
                                 .expect("clear count was valid"),
                             add_to_clears: false,
                         };
+                        self.story.clear_chapter(opts);
                         msg = msg.chain(Task::done(Message::Edit(
                             StoryChaptersEdit(crate::edits::EditMemory::new(
                                 ClearStoryChapters::ClearChapter(opts),
@@ -286,6 +354,36 @@ impl EditViewable for MainStory {
                 )));
             }
             MainStoryMsg::EditClearCountChapters(v) => self.clear_count_chapters = v,
+            MainStoryMsg::EditClearCountStages(v, id) => {
+                self.inputs.insert(id, v);
+            }
+            MainStoryMsg::SubmitClearAmountStages(story_stage) => {
+                let clear_amount: i32 = self.get_input(story_stage).parse().unwrap_or_default();
+                let opts = ClearStageOptions::default()
+                    .with_stage(story_stage)
+                    .with_clear_amount(clear_amount);
+                self.story.clear_stage(opts);
+                self.inputs.remove(&story_stage);
+                return Task::done(Message::Edit(
+                    StoryChaptersEdit(EditMemory::new(
+                        ClearStoryChapters::ClearStage(opts),
+                        self.story,
+                    ))
+                    .into(),
+                ))
+                .chain(Task::done(Message::Notif(
+                    "cleared-stage".localize_with_args(
+                        locale_manager,
+                        &FluentArgs::from_iter([
+                            ("chapter", story_stage.chapter.localize(locale_manager)),
+                            ("stage", story_stage.localize_stage(locale_manager)),
+                        ]),
+                    ),
+                )));
+            }
+            MainStoryMsg::SearchStage(v, story_chapter_type) => {
+                self.stage_searches.insert(story_chapter_type, v);
+            }
         };
 
         Task::none()

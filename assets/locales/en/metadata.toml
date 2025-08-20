@@ -1,2 +1,2 @@
 authors = ["fieryhenry"]
-files = ["main.ftl"]
+files = ["main.ftl", "map.ftl"]
