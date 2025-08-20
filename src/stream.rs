@@ -613,6 +613,18 @@ impl_write_tuple!(T1 => 0, T2 => 1, T3 => 2, T4 => 3, T5 => 4, T6 => 5);
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, Default)]
 pub struct VariableLengthInt(pub u32);
 
+impl From<u32> for VariableLengthInt {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<VariableLengthInt> for u32 {
+    fn from(value: VariableLengthInt) -> Self {
+        value.0
+    }
+}
+
 impl ToUsize for VariableLengthInt {
     fn to_usize(self) -> usize {
         self.0 as usize
