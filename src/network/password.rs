@@ -92,14 +92,14 @@ pub enum PasswordError {
     Headers(std::io::Error),
     #[error("failed to send request: {0}")]
     SendReq(reqwest::Error),
-    #[error("failed to get response json data: {0}")]
-    JsonResp(reqwest::Error),
+    #[error("failed to parse response json data: {0} for {1}")]
+    JsonResp(serde_json::Error, String),
     #[error("failed to generate nonce: {0}")]
     GenNonce(std::io::Error),
     #[error("failed to generate json string: {0}")]
     ToJsonStr(serde_json::Error),
-    #[error("password payload was null")]
-    NullPayload,
+    #[error("password payload was null: {0}")]
+    NullPayload(String),
     #[error("failed to get response text: {0}")]
     RespText(reqwest::Error),
     #[error("failed to get upload save data: {0}")]
@@ -108,6 +108,8 @@ pub enum PasswordError {
     SigV1(std::io::Error),
     #[error("failed to serialize save data: {0}")]
     SerializeSave(StreamError),
+    #[error("failed to get byte response: {0}")]
+    Bytes(reqwest::Error),
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -117,11 +119,11 @@ pub struct RequestJsonResponseV1<P> {
     pub status_code: i32,
     pub timestamp: i32,
     pub payload: Option<P>,
-    pub nonce: String,
+    pub nonce: Option<String>,
 }
 impl<P> RequestJsonResponseV1<P> {
-    pub fn into_payload(self) -> Result<P, PasswordError> {
-        self.payload.ok_or(PasswordError::NullPayload)
+    pub fn into_payload(self, ctx: String) -> Result<P, PasswordError> {
+        self.payload.ok_or(PasswordError::NullPayload(ctx))
     }
 }
 #[derive(Debug, serde::Deserialize)]
@@ -137,8 +139,8 @@ pub struct RequestJsonResponseV2<P> {
 }
 
 impl<P> RequestJsonResponseV2<P> {
-    pub fn into_payload(self) -> Result<P, PasswordError> {
-        self.payload.ok_or(PasswordError::NullPayload)
+    pub fn into_payload(self, ctx: String) -> Result<P, PasswordError> {
+        self.payload.ok_or(PasswordError::NullPayload(ctx))
     }
 }
 type RequestJsonResponseV2Blank = RequestJsonResponseV2<String>;
@@ -190,6 +192,7 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     inquiry_code: &str,
     payload: &S,
 ) -> Result<RequestJsonResponseV1<D>, PasswordError> {
+    println!("v1 request to {url} with iq: {inquiry_code}");
     let payload = RequestPayloadV1::new(inquiry_code, payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
     let headers =
@@ -205,8 +208,10 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
         .await
         .map_err(|e| PasswordError::SendReq(e))?;
 
-    let json_data: RequestJsonResponseV1<D> =
-        resp.json().await.map_err(|e| PasswordError::JsonResp(e))?;
+    let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
+
+    let json_data: RequestJsonResponseV1<D> = serde_json::de::from_slice(&data)
+        .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
 }
@@ -214,6 +219,7 @@ async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
     url: &str,
     auth_token: &str,
 ) -> Result<RequestJsonResponseV2<D>, PasswordError> {
+    println!("v2 request to {url} with token: {auth_token}");
     let headers = v2_headers_empty(auth_token).map_err(|e| PasswordError::Headers(e))?;
 
     let client = new_client().map_err(|e| PasswordError::NewClient(e))?;
@@ -226,8 +232,10 @@ async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
         .await
         .map_err(|e| PasswordError::SendReq(e))?;
 
-    let json_data: RequestJsonResponseV2<D> =
-        resp.json().await.map_err(|e| PasswordError::JsonResp(e))?;
+    let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
+
+    let json_data: RequestJsonResponseV2<D> = serde_json::de::from_slice(&data)
+        .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
 }
@@ -237,6 +245,7 @@ async fn v2_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     inquiry_code: &str,
     payload: &S,
 ) -> Result<RequestJsonResponseV2<D>, PasswordError> {
+    println!("v2 request to {url} with inquiry code: {inquiry_code} and with token: {auth_token}");
     let payload = RequestPayloadV2::new(payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
     let headers =
@@ -252,8 +261,10 @@ async fn v2_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
         .await
         .map_err(|e| PasswordError::SendReq(e))?;
 
-    let json_data: RequestJsonResponseV2<D> =
-        resp.json().await.map_err(|e| PasswordError::JsonResp(e))?;
+    let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
+
+    let json_data: RequestJsonResponseV2<D> = serde_json::de::from_slice(&data)
+        .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
 }
@@ -279,16 +290,21 @@ pub struct NewAccountJsonResponse {
 
 pub async fn create_new_account() -> Result<NewAccountJsonResponse, PasswordError> {
     let url = format!("{BACKUPS_URL}/?action=createAccount&referenceId=");
+    println!("request to {url}");
 
     let client = new_client().map_err(PasswordError::NewClient)?;
 
     let resp = client
-        .get(url)
+        .get(&url)
         .send()
         .await
         .map_err(PasswordError::SendReq)?;
 
-    let json_data: NewAccountJsonResponse = resp.json().await.map_err(PasswordError::JsonResp)?;
+    let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
+
+    let json_data: NewAccountJsonResponse = serde_json::de::from_slice(&data)
+        .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
+
     Ok(json_data)
 }
 
@@ -383,7 +399,7 @@ impl AccountState {
 
         let payload = register_new_account(&iq, self.account_created_at)
             .await?
-            .into_payload()?;
+            .into_payload("register new account".to_string())?;
 
         self.password_refresh_token = Some(payload.password_refresh_token.clone());
         self.account_info.password = Some(payload.password);
@@ -399,12 +415,14 @@ impl AccountState {
         let prt = self.try_get_password_refresh_token().await?;
         let iq = self.try_get_inquiry_code().await?;
 
-        let mut payload = refresh_password(&iq, &prt).await?.into_payload();
+        let mut payload = refresh_password(&iq, &prt)
+            .await?
+            .into_payload("refresh password".to_string());
 
         if payload.is_err() {
             payload = register_new_account(&iq, self.account_created_at)
                 .await?
-                .into_payload();
+                .into_payload("register new account".to_string());
         }
 
         let payload = payload?;
@@ -427,10 +445,27 @@ impl AccountState {
         let iq = self.try_get_inquiry_code().await?;
         let token = get_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
             .await?
-            .into_payload()?
-            .token;
+            .into_payload("get auth token".to_string())
+            .map(|v| v.token)
+            .ok();
 
-        self.account_info.auth_token = Some(token.clone());
+        let token = if let Some(token) = token {
+            self.account_info.auth_token = Some(token.clone());
+
+            token
+        } else {
+            self.account_info.password = None;
+
+            let password = self.try_get_password().await?;
+            let iq = self.try_get_inquiry_code().await?;
+            let token = get_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
+                .await?
+                .into_payload("get auth token".to_string())?;
+
+            self.account_info.auth_token = Some(token.token.clone());
+
+            token.token
+        };
 
         Ok(token)
     }
@@ -456,21 +491,31 @@ pub async fn upload_save(
         account_created_at: 0, // TODO
     };
 
-    let auth_token = state.try_get_auth_token().await?;
-    let inquiry_code = state.try_get_inquiry_code().await?;
+    let save_key_payload = get_save_key(&state.try_get_auth_token().await?)
+        .await?
+        .into_payload("get save key".to_string());
 
-    let save_key = get_save_key(&auth_token).await?.into_payload()?;
-
-    let prt = state.try_get_password_refresh_token().await?;
-    let password = state.try_get_password().await?;
+    let save_key = match save_key_payload {
+        Ok(o) => o,
+        Err(_) => {
+            state.account_info.auth_token = None;
+            let auth_token = state.try_get_auth_token().await?;
+            get_save_key(&auth_token)
+                .await?
+                .into_payload("get save key".to_string())?
+        }
+    };
 
     save_file
         .save_file
         .save
-        .set_inquiry_code(inquiry_code.clone());
-    save_file.save_file.save.set_password_refresh_token(prt);
-    save_file.account_info.account_info.password = Some(password);
-    save_file.account_info.account_info.auth_token = Some(auth_token.clone());
+        .set_inquiry_code(state.try_get_inquiry_code().await?);
+    save_file
+        .save_file
+        .save
+        .set_password_refresh_token(state.try_get_password_refresh_token().await?);
+    save_file.account_info.account_info.password = Some(state.try_get_password().await?);
+    save_file.account_info.account_info.auth_token = Some(state.try_get_auth_token().await?);
 
     let save_data = save_file
         .save_file
@@ -478,9 +523,9 @@ pub async fn upload_save(
         .map_err(PasswordError::SerializeSave)?;
 
     let codes = upload_save_data(
-        &auth_token,
+        &state.try_get_auth_token().await?,
         save_key,
-        &inquiry_code,
+        &state.try_get_inquiry_code().await?,
         save_data,
         account_info.managed_items,
         info.playtime,
@@ -488,7 +533,7 @@ pub async fn upload_save(
         Vec::new(),
     )
     .await?
-    .into_payload()?;
+    .into_payload("upload save data".to_string())?;
 
     Ok((codes, save_file))
 }
