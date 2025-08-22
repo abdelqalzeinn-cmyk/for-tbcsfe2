@@ -141,25 +141,19 @@ impl WaydroidHandler {
     }
 
     pub async fn close_program(&mut self, pkg: &str) -> Result<(), WaydroidError> {
-        self.run_command(&["am", "force-stop", pkg]).await?;
+        self.adb
+            .close_program(pkg)
+            .await
+            .map_err(WaydroidError::Adb)?;
 
         Ok(())
     }
 
     pub async fn run_program(&mut self, pkg: &str) -> Result<(), WaydroidError> {
-        self.run_command(&["monkey", "--pct-syskeys", "0", "-p", pkg, "1"])
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn rerun_program(&mut self, pkg: &str) -> Result<(), WaydroidError> {
-        // reduces 1 pkexec call
-        self.run_commands(&[
-            &["am", "force-stop", pkg],
-            &["monkey", "--pct-syskeys", "0", "-p", pkg, "1"],
-        ])
-        .await?;
+        self.adb
+            .run_program(pkg)
+            .await
+            .map_err(WaydroidError::Adb)?;
 
         Ok(())
     }
@@ -195,9 +189,6 @@ impl ExternalSaveSource for WaydroidGameHandler {
     }
     async fn run_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
         self.handler.run_program(pkg).await
-    }
-    async fn rerun_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
-        self.handler.rerun_program(pkg).await
     }
     async fn get_all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
         let res = self
