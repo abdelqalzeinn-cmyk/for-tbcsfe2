@@ -698,6 +698,12 @@ impl<L, K, V> HashMapLength<L, K, V> {
     }
 }
 
+impl<L, K, V> From<HashMap<K, V>> for HashMapLength<L, K, V> {
+    fn from(value: HashMap<K, V>) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<
     L: for<'a> Readable<Args<'a> = ()> + ToUsize,
     K: for<'a> Readable<Args<'a> = ()> + Hash + Eq + Display,
