@@ -97,5 +97,7 @@ clear-stage = Clear Stage
 cleared-stage-up-to = Cleared { $chapter } up to and including { $stage }
 uncleared-stage-down-to = Uncleared { $chapter }  down to and including { $stage }
 
+clear-whole-chapters = Clear Whole Chapters
+
 clear = Clear
 unclear = Unclear

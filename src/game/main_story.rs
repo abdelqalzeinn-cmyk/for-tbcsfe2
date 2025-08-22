@@ -255,10 +255,10 @@ impl StageId {
         self.into()
     }
 
-    pub fn iter_to_end(self) -> impl Iterator<Item = Self> {
+    pub fn iter_to_end(self) -> impl DoubleEndedIterator<Item = Self> {
         (self.0..(TOTAL_STORY_STAGES as u8)).map(|id| Self(id))
     }
-    pub fn iter_from_start(self) -> impl Iterator<Item = Self> {
+    pub fn iter_from_start(self) -> impl DoubleEndedIterator<Item = Self> {
         (0..=(self.0)).map(|id| Self(id))
     }
 }
@@ -313,11 +313,24 @@ impl StoryStage {
             stage_id: v,
         })
     }
+    pub fn next(&self) -> Option<StoryStage> {
+        self.stage_id.next().map(|v| Self {
+            chapter: self.chapter,
+            stage_id: v,
+        })
+    }
 
     pub fn previous_saturating(&self) -> Self {
         Self {
             chapter: self.chapter,
             stage_id: self.stage_id.previous_saturating(),
+        }
+    }
+
+    fn next_saturating(&self) -> StoryStage {
+        Self {
+            chapter: self.chapter,
+            stage_id: self.stage_id.next_saturating(),
         }
     }
 }
@@ -463,9 +476,9 @@ impl StoryChapters {
     }
     pub fn clear_stage(&mut self, opts: ClearStageOptions) {
         let chap_progress = if opts.clear_amount == 0 {
-            opts.stage.previous_saturating()
-        } else {
             opts.stage
+        } else {
+            opts.stage.next_saturating()
         };
         match opts.progress_type {
             ProgressType::AlwaysSetProgress => self.set_chapter_progress(chap_progress),

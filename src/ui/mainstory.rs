@@ -7,7 +7,7 @@ use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::edits::EditMemory;
 use crate::edits::main_story::{ClearStoryChapters, StoryChaptersEdit};
-use crate::game::main_story::ClearStageOptions;
+use crate::game::main_story::{ClearStageOptions, TOTAL_STORY_CHAPTERS};
 use crate::localization::{LocaleManager, Localizable};
 use crate::{
     game::main_story::{
@@ -23,6 +23,7 @@ pub struct MainStory {
     clear_count_chapters: String,
     story: StoryChapters,
     inputs: HashMap<StoryStage, String>,
+    current_tab: Option<StoryChapterType>,
     stage_searches: HashMap<StoryChapterType, String>,
 }
 
@@ -34,6 +35,7 @@ impl MainStory {
             story: StoryChapters::default(),
             inputs: HashMap::new(),
             stage_searches: HashMap::new(),
+            current_tab: None,
         }
     }
 
@@ -57,8 +59,6 @@ impl MainStory {
         let clear_count_label = "clear-count".localize(locale_manager);
 
         let searched_value = self.get_stage_search(chapter_id);
-
-        let mut all_cleared_so_far = true;
 
         for stage_index in 0..TOTAL_INGAME_STAGES {
             let stage_id = StageId::new(stage_index as u8);
@@ -96,10 +96,6 @@ impl MainStory {
 
                 let clear_amount = self.story.get_clear_amount(stage);
 
-                if clear_amount == 0 {
-                    all_cleared_so_far = false;
-                }
-
                 let clear_count_entry = iced::widget::text_input(&clear_count_label, &clear_count)
                     .width(Length::FillPortion(4))
                     .on_input(move |i| {
@@ -115,7 +111,7 @@ impl MainStory {
 
                 let mut row_data = vec![num.into(), label.into()];
 
-                if !all_cleared_so_far {
+                if progress <= (stage_index as i32) {
                     row_data.push(clear_up_to.into());
                 }
                 if clear_amount != 0 {
@@ -157,7 +153,7 @@ impl MainStory {
 
         labeled_box(
             theme,
-            "stage-clear".localize(locale_manager),
+            chapter_id.localize(locale_manager),
             iced::widget::column([search_box.into(), scroll_area.into()])
                 .spacing(10)
                 .into(),
@@ -205,8 +201,10 @@ impl MainStory {
 
     fn view_clear_all_chapters_pannel(
         &self,
+        theme: &iced::Theme,
         locale_manager: &LocaleManager,
     ) -> iced::Element<'_, Message> {
+        let select_pannel = self.view_select_chapter_pannel(locale_manager);
         let clear_chapters = iced::widget::button(iced::widget::text(
             "clear-all-selected-chapters".localize(locale_manager),
         ))
@@ -228,22 +226,26 @@ impl MainStory {
         .on_input(|inp: String| Message::MainStory(MainStoryMsg::EditClearCountChapters(inp)))
         .into();
 
-        let clear_chapters_pannel = iced::widget::container(
-            iced::widget::row([
-                clear_chapters,
-                iced::widget::text("clear-count".localize(locale_manager))
-                    .align_y(Vertical::Center)
-                    .height(Length::Fill)
-                    .into(),
-                clear_count_box,
+        labeled_box(
+            theme,
+            "clear-whole-chapters".localize(locale_manager),
+            iced::widget::column([
+                select_pannel,
+                iced::widget::row([
+                    clear_chapters,
+                    iced::widget::text("clear-count".localize(locale_manager))
+                        .align_y(Vertical::Center)
+                        .height(Length::Fill)
+                        .into(),
+                    clear_count_box,
+                ])
+                .height(Length::Shrink)
+                .spacing(10)
+                .into(),
             ])
-            .height(Length::Shrink)
-            .spacing(10),
+            .spacing(10)
+            .into(),
         )
-        .padding(10)
-        .style(bordered_box)
-        .into();
-        clear_chapters_pannel
     }
 }
 
@@ -316,6 +318,7 @@ pub enum MainStoryMsg {
     SearchStage(String, StoryChapterType),
     ClearUpTo(StoryStage),
     UnClearDownTo(StoryStage),
+    SelectChapterTab(StoryChapterType),
 }
 
 impl EditViewable for MainStory {
@@ -329,23 +332,51 @@ impl EditViewable for MainStory {
         theme: &iced::Theme,
         locale_manager: &LocaleManager,
     ) -> iced::Element<'_, super::app::Message> {
-        let select_pannel = self.view_select_chapter_pannel(locale_manager);
+        let clear_chapters_pannel = self.view_clear_all_chapters_pannel(theme, locale_manager);
 
-        let clear_chapters_pannel = self.view_clear_all_chapters_pannel(locale_manager);
+        let mut col = vec![clear_chapters_pannel];
 
-        let clear_stages_pannel = self.view_stage_clear_pannel(
+        let mut tabs = Vec::new();
+
+        for i in 0..9 {
+            let chap_type = StoryChapterType::from_usize_human(i).expect("i is within 0 - 8");
+
+            let mut btn =
+                iced::widget::button(iced::widget::text(chap_type.localize(locale_manager)))
+                    .on_press(Message::MainStory(MainStoryMsg::SelectChapterTab(
+                        chap_type,
+                    )));
+            if self.current_tab == Some(chap_type) {
+                btn = btn.style(move |t: &iced::Theme, s| {
+                    iced::widget::button::Catalog::style(
+                        t,
+                        &<iced::Theme as iced::widget::button::Catalog>::default(),
+                        s,
+                    )
+                    .with_background(t.extended_palette().success.base.color)
+                });
+            }
+
+            tabs.push(btn.into());
+        }
+
+        col.push(labeled_box(
             theme,
-            locale_manager,
-            StoryChapterType::Eoc(InnerChapterType::First),
-        );
+            "stage-clear".localize(locale_manager),
+            iced::widget::row(tabs)
+                .spacing(10)
+                .wrap()
+                .vertical_spacing(10)
+                .into(),
+        ));
 
-        let edit_pannel = iced::widget::column([clear_chapters_pannel, clear_stages_pannel])
-            .spacing(10)
-            .into();
+        if let Some(current_tab) = self.current_tab {
+            let clear_stages_pannel =
+                self.view_stage_clear_pannel(theme, locale_manager, current_tab);
+            col.push(clear_stages_pannel);
+        }
 
-        iced::widget::column([select_pannel, edit_pannel])
-            .spacing(10)
-            .into()
+        iced::widget::column(col).spacing(10).into()
     }
     fn update(
         &mut self,
@@ -353,7 +384,9 @@ impl EditViewable for MainStory {
         locale_manager: &LocaleManager,
     ) -> iced::Task<super::app::Message> {
         match message {
-            MainStoryMsg::SelectChapter(ind, enabled) => self.selected_chapters[ind] = enabled,
+            MainStoryMsg::SelectChapter(ind, enabled) => {
+                self.selected_chapters[ind] = enabled;
+            }
             MainStoryMsg::ToggleAll => {
                 if self.selected_chapters.iter().all(|f| *f) {
                     self.selected_chapters = [false; 9]
@@ -393,18 +426,8 @@ impl EditViewable for MainStory {
             }
             MainStoryMsg::SubmitClearAmountStages(story_stage) => {
                 let clear_amount: i32 = self.get_input(story_stage).parse().unwrap_or_default();
-                let opts = ClearStageOptions::default()
-                    .with_stage(story_stage)
-                    .with_clear_amount(clear_amount);
-                let mut edits = vec![
-                    StoryChaptersEdit(EditMemory::new(
-                        ClearStoryChapters::ClearStage(opts),
-                        self.story,
-                    ))
-                    .into(),
-                ];
-                self.story.clear_stage(opts);
-                self.inputs.remove(&story_stage);
+
+                let mut edits = Vec::new();
 
                 if clear_amount != 0 {
                     for stage_index in story_stage.stage_id.iter_from_start() {
@@ -428,7 +451,7 @@ impl EditViewable for MainStory {
                         self.story.clear_stage(opts2);
                     }
                 } else {
-                    for stage_index in story_stage.stage_id.iter_to_end() {
+                    for stage_index in story_stage.stage_id.iter_to_end().rev() {
                         let story_stage2 = StoryStage {
                             chapter: story_stage.chapter,
                             stage_id: stage_index,
@@ -449,6 +472,23 @@ impl EditViewable for MainStory {
                         self.story.clear_stage(opts2);
                     }
                 }
+
+                let opts = ClearStageOptions::default()
+                    .with_stage(story_stage)
+                    .with_clear_amount(clear_amount)
+                    .with_progress_type(
+                        crate::game::main_story::ProgressType::OnlySetProgressIfLaterStage,
+                    );
+
+                edits.push(
+                    StoryChaptersEdit(EditMemory::new(
+                        ClearStoryChapters::ClearStage(opts),
+                        self.story,
+                    ))
+                    .into(),
+                );
+                self.story.clear_stage(opts);
+                self.inputs.remove(&story_stage);
 
                 return Task::done(Message::Edit(edits)).chain(Task::done(Message::Notif(
                     if clear_amount == 0 {
@@ -500,7 +540,7 @@ impl EditViewable for MainStory {
             }
             MainStoryMsg::UnClearDownTo(stage) => {
                 let mut edits = Vec::new();
-                for stage_index in stage.stage_id.iter_to_end() {
+                for stage_index in stage.stage_id.iter_to_end().rev() {
                     let stage_id: StageId = stage_index.try_into().expect("stage id is valid");
                     let opt = ClearStageOptions::default()
                         .with_chapter(stage.chapter)
@@ -525,6 +565,9 @@ impl EditViewable for MainStory {
                         ]),
                     ),
                 )));
+            }
+            MainStoryMsg::SelectChapterTab(story_chapter_type) => {
+                self.current_tab = Some(story_chapter_type);
             }
         };
 
