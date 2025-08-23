@@ -136,6 +136,23 @@ impl StoryChapterType {
         Self::Cotc(InnerChapterType::Second),
         Self::Cotc(InnerChapterType::Third),
     ];
+    pub const ALL_GROUPED: [[Self; 3]; 3] = [
+        [
+            Self::Eoc(InnerChapterType::First),
+            Self::Eoc(InnerChapterType::Second),
+            Self::Eoc(InnerChapterType::Third),
+        ],
+        [
+            Self::Itf(InnerChapterType::First),
+            Self::Itf(InnerChapterType::Second),
+            Self::Itf(InnerChapterType::Third),
+        ],
+        [
+            Self::Cotc(InnerChapterType::First),
+            Self::Cotc(InnerChapterType::Second),
+            Self::Cotc(InnerChapterType::Third),
+        ],
+    ];
 
     pub fn from_usize_human(i: usize) -> Option<StoryChapterType> {
         Some(match i {
