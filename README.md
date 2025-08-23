@@ -63,7 +63,7 @@ Features which are marked as ~strike-through~ are completed.
 #### Stages / Maps
 
 - ~Main Story Clear All~
-- Main Story Clear Specific Stages
+- ~Main Story Clear Specific Stages~
 - Main Story Treasures
 - Stories of Legend
 - Uncanny Legend
