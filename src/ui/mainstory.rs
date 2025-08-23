@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 
 use fluent::FluentArgs;
 use iced::Border;
@@ -170,7 +169,7 @@ impl MainStory {
         locale_manager: &LocaleManager,
     ) -> iced::Element<'_, Message> {
         let mut items = Vec::new();
-        for (i, chaps) in Chapters::ALL_GROUPED.into_iter().enumerate() {
+        for (i, chaps) in StoryChapterType::ALL_GROUPED.into_iter().enumerate() {
             let mut row_items = Vec::new();
             for (j, chap) in chaps.into_iter().enumerate() {
                 let index = i * 3 + j;
@@ -244,64 +243,6 @@ impl MainStory {
             .spacing(10)
             .into(),
         )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Chapters {
-    Eoc1,
-    Eoc2,
-    Eoc3,
-    Itf1,
-    Itf2,
-    Itf3,
-    Cotc1,
-    Cotc2,
-    Cotc3,
-}
-impl Chapters {
-    // const ALL: [Chapters; 9] = [
-    //     Self::Eoc1,
-    //     Self::Eoc2,
-    //     Self::Eoc3,
-    //     Self::Itf1,
-    //     Self::Itf2,
-    //     Self::Itf3,
-    //     Self::Cotc1,
-    //     Self::Cotc2,
-    //     Self::Cotc3,
-    // ];
-
-    const ALL_GROUPED: [[Chapters; 3]; 3] = [
-        [Self::Eoc1, Self::Eoc2, Self::Eoc3],
-        [Self::Itf1, Self::Itf2, Self::Itf2],
-        [Self::Cotc1, Self::Cotc2, Self::Cotc3],
-    ];
-}
-
-impl Display for Chapters {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Chapters::Eoc1 => "chapter-1",
-                Chapters::Eoc2 => "chapter-2",
-                Chapters::Eoc3 => "chapter-3",
-                Chapters::Itf1 => "chapter-4",
-                Chapters::Itf2 => "chapter-5",
-                Chapters::Itf3 => "chapter-6",
-                Chapters::Cotc1 => "chapter-7",
-                Chapters::Cotc2 => "chapter-8",
-                Chapters::Cotc3 => "chapter-9",
-            }
-        )
-    }
-}
-
-impl From<Chapters> for String {
-    fn from(value: Chapters) -> Self {
-        value.to_string()
     }
 }
 
