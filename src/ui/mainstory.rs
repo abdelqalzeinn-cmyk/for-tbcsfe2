@@ -1,18 +1,16 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use fluent::{FluentArgs, FluentValue};
+use fluent::FluentArgs;
 use iced::Border;
 use iced::{Length, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::edits::EditMemory;
 use crate::edits::main_story::{ClearStoryChapters, StoryChaptersEdit};
-use crate::game::main_story::{ClearStageOptions, TOTAL_STORY_CHAPTERS};
+use crate::game::main_story::ClearStageOptions;
 use crate::localization::{LocaleManager, Localizable};
 use crate::{
-    game::main_story::{
-        InnerChapterType, StageId, StoryChapterType, StoryChapters, StoryStage, TOTAL_INGAME_STAGES,
-    },
+    game::main_story::{StageId, StoryChapterType, StoryChapters, StoryStage, TOTAL_INGAME_STAGES},
     network::account_info::SaveFileAccount,
     ui::{app::Message, editview::EditViewable, helper::labeled_box},
 };
@@ -336,38 +334,37 @@ impl EditViewable for MainStory {
 
         let mut col = vec![clear_chapters_pannel];
 
-        let mut tabs = Vec::new();
+        let mut tabs: Vec<iced::Element<'_, Message>> = Vec::new();
 
-        for i in 0..9 {
-            let chap_type = StoryChapterType::from_usize_human(i).expect("i is within 0 - 8");
+        for chaps in StoryChapterType::ALL_GROUPED {
+            let mut row = Vec::new();
 
-            let mut btn =
-                iced::widget::button(iced::widget::text(chap_type.localize(locale_manager)))
-                    .on_press(Message::MainStory(MainStoryMsg::SelectChapterTab(
-                        chap_type,
-                    )));
-            if self.current_tab == Some(chap_type) {
-                btn = btn.style(move |t: &iced::Theme, s| {
-                    iced::widget::button::Catalog::style(
-                        t,
-                        &<iced::Theme as iced::widget::button::Catalog>::default(),
-                        s,
-                    )
-                    .with_background(t.extended_palette().success.base.color)
-                });
+            for chap_type in chaps {
+                let mut btn =
+                    iced::widget::button(iced::widget::text(chap_type.localize(locale_manager)))
+                        .on_press(Message::MainStory(MainStoryMsg::SelectChapterTab(
+                            chap_type,
+                        )));
+                if self.current_tab == Some(chap_type) {
+                    btn = btn.style(move |t: &iced::Theme, s| {
+                        iced::widget::button::Catalog::style(
+                            t,
+                            &<iced::Theme as iced::widget::button::Catalog>::default(),
+                            s,
+                        )
+                        .with_background(t.extended_palette().success.base.color)
+                    });
+                }
+
+                row.push(btn.into());
             }
-
-            tabs.push(btn.into());
+            tabs.push(iced::widget::column(row).spacing(10).into());
         }
 
         col.push(labeled_box(
             theme,
             "stage-clear".localize(locale_manager),
-            iced::widget::row(tabs)
-                .spacing(10)
-                .wrap()
-                .vertical_spacing(10)
-                .into(),
+            iced::widget::row(tabs).spacing(10).into(),
         ));
 
         if let Some(current_tab) = self.current_tab {
