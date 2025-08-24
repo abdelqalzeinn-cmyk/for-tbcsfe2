@@ -689,6 +689,35 @@ pub struct ManagedItem {
     managed_item_type: ManagedItemType,
 }
 
+impl ManagedItem {
+    pub fn new(amount: i32, item: ManagedItemType) -> Self {
+        Self {
+            amount,
+            detail_code: uuid::Uuid::new_v4().to_string(),
+            detail_created_at: get_unix_timestamp(),
+            detail_type: if amount.is_negative() {
+                ManagedItemDetailType::Use
+            } else {
+                ManagedItemDetailType::Get
+            },
+            managed_item_type: item,
+        }
+    }
+
+    pub fn new_catfood(amount: i32) -> Self {
+        Self::new(amount, ManagedItemType::Catfood)
+    }
+    pub fn new_rare_ticket(amount: i32) -> Self {
+        Self::new(amount, ManagedItemType::RareTicket)
+    }
+    pub fn new_platinum_ticket(amount: i32) -> Self {
+        Self::new(amount, ManagedItemType::PlatinumTicket)
+    }
+    pub fn new_legend_ticket(amount: i32) -> Self {
+        Self::new(amount, ManagedItemType::LegendTicket)
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UploadRequestPayload<'a> {

@@ -53,6 +53,10 @@ impl EditorAccountInfo {
         }
     }
 
+    pub fn add_managed_item(&mut self, item: ManagedItem) {
+        self.managed_items.push(item);
+    }
+
     pub fn read_from_string(data: &str) -> Result<Self, AccountInfoError> {
         serde_json::from_str(data).map_err(|e| AccountInfoError::SerdeJson(e))
     }

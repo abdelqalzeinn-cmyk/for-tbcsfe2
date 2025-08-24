@@ -315,6 +315,7 @@ impl ApplicationState {
                     let len = self.current_edits.len();
                     for edit in self.current_edits.drain(0..len) {
                         edit.apply(&mut save.save_file.save_file);
+                        edit.add_managed_item(&mut save.save_file);
                         self.edits.push(edit);
                     }
                 }

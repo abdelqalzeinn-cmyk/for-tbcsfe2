@@ -106,6 +106,9 @@ pub trait EditReadable {
 pub trait Applyable {
     fn apply(&self, save_file: &mut SaveFile);
     fn revert(&self, save_file: &mut SaveFile);
+
+    #[cfg(feature = "network")]
+    fn add_managed_item(&self, _save_file: &mut crate::network::account_info::SaveFileAccount) {}
 }
 
 macro_rules! apply_revert {
@@ -121,6 +124,14 @@ macro_rules! apply_revert {
                 $(Self::$var(v) => v.revert(save_file),)+
             }
         }
+
+        #[cfg(feature = "network")]
+        fn add_managed_item(&self, save_file: &mut crate::network::account_info::SaveFileAccount) {
+            match self {
+                $(Self::$var(v) => v.add_managed_item(save_file),)+
+            }
+        }
+
     };
 }
 
