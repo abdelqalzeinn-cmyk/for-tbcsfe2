@@ -154,6 +154,7 @@ impl<T: BasicItem> EditViewable for BasicItemView<T> {
                 match value {
                     Ok(v) => {
                         let msg = T::set_save_value(v, self.old);
+                        self.old = v;
                         return {
                             let mut args = FluentArgs::with_capacity(2);
                             args.set("feature", T::feature().to_string());
