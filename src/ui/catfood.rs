@@ -19,7 +19,7 @@ macro_rules! impl_basic_item {
                 $feature
             }
             fn max_value() -> i32 {
-                $max as i32
+                $max
             }
         }
     };
