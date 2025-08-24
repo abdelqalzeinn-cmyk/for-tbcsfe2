@@ -2,7 +2,7 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
 use crate::{
     network::{
-        account_info::{EditorAccountInfo, GameAccountInfo, SaveFileAccount},
+        account_info::{GameAccountInfo, SaveFileAccount},
         get_unix_timestamp,
         signature::{sign_v1, sign_v2},
         transfer::{ClientInfo, gen_nonce, new_client},
@@ -227,7 +227,6 @@ async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
     let resp = client
         .get(url)
         .headers(headers)
-        // .body(data)
         .send()
         .await
         .map_err(|e| PasswordError::SendReq(e))?;
@@ -290,7 +289,6 @@ pub struct NewAccountJsonResponse {
 
 pub async fn create_new_account() -> Result<NewAccountJsonResponse, PasswordError> {
     let url = format!("{BACKUPS_URL}/?action=createAccount&referenceId=");
-    println!("request to {url}");
 
     let client = new_client().map_err(PasswordError::NewClient)?;
 
@@ -474,11 +472,10 @@ impl AccountState {
 pub async fn upload_save(
     mut save_file: SaveFileAccount,
     info: UploadInfo,
-    account_info: EditorAccountInfo,
 ) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
     let mut state = AccountState {
         inquiry_code: info.inquiry_code,
-        account_info: account_info.account_info,
+        account_info: save_file.account_info.account_info.clone(),
         password_refresh_token: info.password_refresh_token,
         gvcc: info.gvcc,
         items: ManagedItemsUpdate {
@@ -514,8 +511,12 @@ pub async fn upload_save(
         .save_file
         .save
         .set_password_refresh_token(state.try_get_password_refresh_token().await?);
-    save_file.account_info.account_info.password = Some(state.try_get_password().await?);
-    save_file.account_info.account_info.auth_token = Some(state.try_get_auth_token().await?);
+    save_file
+        .account_info
+        .set_password(state.try_get_password().await?);
+    save_file
+        .account_info
+        .set_auth_token(state.try_get_auth_token().await?);
 
     let save_data = save_file
         .save_file
@@ -527,13 +528,15 @@ pub async fn upload_save(
         save_key,
         &state.try_get_inquiry_code().await?,
         save_data,
-        account_info.managed_items,
+        &save_file.account_info.managed_items,
         info.playtime,
         info.user_rank,
         Vec::new(),
     )
     .await?
     .into_payload("upload save data".to_string())?;
+
+    save_file.account_info.managed_items.clear();
 
     Ok((codes, save_file))
 }
@@ -542,7 +545,7 @@ pub async fn create_and_upload(
     save_data: SaveFileAccount,
     info: UploadInfo,
 ) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
-    upload_save(save_data, info, EditorAccountInfo::default()).await
+    upload_save(save_data, info).await
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -721,7 +724,7 @@ impl ManagedItem {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UploadRequestPayload<'a> {
-    managed_item_details: Vec<ManagedItem>,
+    managed_item_details: &'a Vec<ManagedItem>,
     play_time: i32,
     rank: i32,
     reciept_log_ids: Vec<String>,
@@ -732,7 +735,7 @@ struct UploadRequestPayload<'a> {
 
 impl<'a> UploadRequestPayload<'a> {
     fn new(
-        managed_items: Vec<ManagedItem>,
+        managed_items: &'a Vec<ManagedItem>,
         play_time: i32,
         user_rank: i32,
         reciept_log_ids: Vec<String>,
@@ -768,7 +771,7 @@ pub async fn upload_save_data(
     save_key: SaveKeyJsonResponse,
     inquiry_code: &str,
     save_data: Vec<u8>,
-    managed_items: Vec<ManagedItem>,
+    managed_items: &Vec<ManagedItem>,
     play_time: i32,
     user_rank: i32,
     reciept_log_ids: Vec<String>,
@@ -805,7 +808,7 @@ pub async fn upload_save_metadata(
     let url = format!("{SAVE_URL}/v2/backups");
 
     let payload = UploadRequestPayload::new(
-        managed_items,
+        &managed_items,
         play_time,
         user_rank,
         reciept_log_ids,

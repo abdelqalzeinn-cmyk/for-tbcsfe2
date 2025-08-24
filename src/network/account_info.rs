@@ -39,6 +39,15 @@ pub struct GameAccountInfo {
     #[serde(rename = "token")]
     pub auth_token: Option<String>,
 }
+
+impl GameAccountInfo {
+    pub fn set_password(&mut self, password: String) {
+        self.password = Some(password);
+    }
+    pub fn set_auth_token(&mut self, token: String) {
+        self.auth_token = Some(token);
+    }
+}
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct EditorAccountInfo {
     pub account_info: GameAccountInfo,
@@ -51,6 +60,14 @@ impl EditorAccountInfo {
             account_info,
             managed_items,
         }
+    }
+
+    pub fn set_password(&mut self, password: String) {
+        self.account_info.set_password(password);
+    }
+
+    pub fn set_auth_token(&mut self, token: String) {
+        self.account_info.set_auth_token(token);
     }
 
     pub fn add_managed_item(&mut self, item: ManagedItem) {

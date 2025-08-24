@@ -87,10 +87,9 @@ impl SaveSave {
                 self.is_transferring = true;
                 let save_info = UploadInfo::from_save(&save.save_file);
                 let save_c = save.clone();
-                let account_info = save.account_info.clone();
                 return Task::done(Message::Notif("upload-start".localize(locale_manager)))
                     .chain(Task::perform(
-                        async move { upload_save(save_c, save_info, account_info).await },
+                        async move { upload_save(save_c, save_info).await },
                         |r| match r {
                             Ok(codes) => Message::SaveSave(SaveSaveMsg::Uploaded(codes.0, codes.1)),
                             Err(e) => Message::Error(e.to_string()),
