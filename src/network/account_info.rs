@@ -171,6 +171,8 @@ pub struct SaveFileAccount {
 
 impl SaveFileAccount {
     pub fn load_from_path(path: &Path, cc: Option<CountryCode>) -> Result<Self, SaveFileZipError> {
+        // FIXME: don't check for extension, try parsing it or smt
+        // Possible security issue here
         if path.extension().is_some_and(|e| e == "zip") {
             Self::load_from_zip_file(path, cc)
         } else {
