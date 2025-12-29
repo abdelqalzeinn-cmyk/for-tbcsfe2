@@ -154,6 +154,33 @@ pub async fn from_codes(
     confirmation_code: String,
     cc: CountryCode,
     gv: GameVersion,
+) -> Result<FromCodesResponse, FromCodesError> {
+    from_codes_opt_device(transfer_code, confirmation_code, cc, gv, None, None).await
+}
+
+pub async fn from_codes_with_device(
+    transfer_code: String,
+    confirmation_code: String,
+    cc: CountryCode,
+    gv: GameVersion,
+    device: Device,
+    os: Os,
+) -> Result<FromCodesResponse, FromCodesError> {
+    from_codes_opt_device(
+        transfer_code,
+        confirmation_code,
+        cc,
+        gv,
+        Some(device),
+        Some(os),
+    )
+    .await
+}
+async fn from_codes_opt_device(
+    transfer_code: String,
+    confirmation_code: String,
+    cc: CountryCode,
+    gv: GameVersion,
     device: Option<Device>,
     os: Option<Os>,
 ) -> Result<FromCodesResponse, FromCodesError> {
