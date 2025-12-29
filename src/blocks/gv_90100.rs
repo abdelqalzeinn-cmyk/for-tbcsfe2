@@ -11,19 +11,19 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum UnknownDict90100 {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum EventStartTimes90100 {
     Old(HashMapLength<i16, i16, f64>),
     New(HashMapLength<i16, i16, i32>),
 }
 
-impl Default for UnknownDict90100 {
+impl Default for EventStartTimes90100 {
     fn default() -> Self {
         Self::New(HashMapLength::default())
     }
 }
 
-impl Readable for UnknownDict90100 {
+impl Readable for EventStartTimes90100 {
     type Args<'a> = GVCC;
     fn read<R: std::io::Read + std::io::Seek>(
         reader: &mut R,
@@ -59,7 +59,7 @@ impl From<&HashMapLength<i16, i16, i32>> for HashMapLength<i16, i16, f64> {
     }
 }
 
-impl Writable for UnknownDict90100 {
+impl Writable for EventStartTimes90100 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
         &self,
@@ -68,18 +68,22 @@ impl Writable for UnknownDict90100 {
     ) -> StreamResult<()> {
         match args.gv.0 {
             0..90100 => match self {
-                UnknownDict90100::Old(hash_map_length) => hash_map_length.write_no_opts(writer)?,
-                UnknownDict90100::New(hash_map_length) => {
+                EventStartTimes90100::Old(hash_map_length) => {
+                    hash_map_length.write_no_opts(writer)?
+                }
+                EventStartTimes90100::New(hash_map_length) => {
                     let other: HashMapLength<i16, i16, f64> = hash_map_length.into();
                     other.write_no_opts(writer)?;
                 }
             },
             _ => match self {
-                UnknownDict90100::Old(hash_map_length) => {
+                EventStartTimes90100::Old(hash_map_length) => {
                     let other: HashMapLength<i16, i16, i32> = hash_map_length.into();
                     other.write_no_opts(writer)?;
                 }
-                UnknownDict90100::New(hash_map_length) => hash_map_length.write_no_opts(writer)?,
+                EventStartTimes90100::New(hash_map_length) => {
+                    hash_map_length.write_no_opts(writer)?
+                }
             },
         };
         Ok(())

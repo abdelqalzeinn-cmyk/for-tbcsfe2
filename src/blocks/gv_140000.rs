@@ -12,7 +12,7 @@ pub struct GV140000Block {
     pub u2: f64,
     pub u3: i8,
     pub u5: HashMapLength<i8, i32, LengthVec<i8, i8>>,
-    pub unknown_chapters: NewChapters,
+    pub dojo_chapters: NewChapters,
     pub u6: LengthVec<i16, i32>,
     pub u7: bool,
     pub u8: f64,

@@ -12,7 +12,7 @@ use crate::{
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90400Block {
-    pub gauntlets_2: GauntletChapters,
+    pub enigma_clears: GauntletChapters,
     #[rw(gvcc)]
     pub enigma: Engima,
     pub cleared_slots: ClearedSlots,
