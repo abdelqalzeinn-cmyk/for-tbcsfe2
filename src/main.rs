@@ -17,21 +17,15 @@ pub mod country_code;
 pub mod ext_source;
 pub mod game;
 pub mod game_version;
+
+#[cfg(feature = "hash")]
 pub mod hash;
+
+pub mod asset_manager;
 pub mod save;
 pub mod stream;
 
-#[cfg(feature = "wasm")]
-fn main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    if let Err(e) = ui::app::run_wasm() {
-        eprint!("{e}");
-        std::process::exit(1);
-    }
-}
-
 #[cfg(feature = "gui")]
-#[cfg(not(feature = "wasm"))]
 fn main() {
     let mut args = std::env::args();
     let filepath = args.nth(1);

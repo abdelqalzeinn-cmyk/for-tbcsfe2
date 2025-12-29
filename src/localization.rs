@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use fluent::{FluentArgs, FluentBundle, FluentMessage, FluentResource};
 use unic_langid::LanguageIdentifier;
 
-use crate::ui::asset::AssetManager;
+use crate::asset_manager::AssetManager;
 
 pub struct LocaleManager {
     bundle: FluentBundle<FluentResource>,
@@ -52,54 +52,6 @@ impl LocaleManager {
         }
 
         Ok(reses)
-    }
-
-    pub fn new_wasm(locale: LanguageIdentifier) -> Self {
-        // FIXME: actually get the locales
-        let mut bundle = FluentBundle::new(vec![locale]);
-
-        let resource = FluentResource::try_new(
-            r#"title = Battle Cats Save File Editor
-load-save = Load Save
-save-save = Save Save
-catfood = Catfood
-xp = XP
-main-story = Main Story
-save-path = Save Path
-transfer-code = Transfer Code
-confirmation-code = Confirmation Code
-country-code = Country Code
-load = Load
-select-path = Select Path
-apply = Apply
-
-chapter_1 = Empire of Cats 1
-chapter_2 = Empire of Cats 2
-chapter_3 = Empire of Cats 3
-chapter_4 = Into the Future 1
-chapter_5 = Into the Future 2
-chapter_6 = Into the Future 3
-chapter_7 = Cats of the Cosmos 1
-chapter_8 = Cats of the Cosmos 2
-chapter_9 = Cats of the Cosmos 3
-
-clear-all-selected-chapters = Clear All Selected Chapters
-clear-count = Clear Count
-toggle-select-all = Toggle Select All
-"#
-            .to_string(),
-        )
-        .unwrap();
-
-        bundle.add_resource(resource).unwrap();
-
-        Self {
-            bundle,
-            metadata: LocaleMetadata {
-                authors: Vec::new(),
-                files: Vec::new(),
-            },
-        }
     }
 
     pub fn new(

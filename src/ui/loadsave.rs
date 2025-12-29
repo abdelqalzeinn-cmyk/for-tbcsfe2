@@ -324,6 +324,8 @@ impl LoadSave {
             .save_data
             .as_ref()
             .ok_or(std::io::Error::other("no save data"))?;
+        // FIXME: security issue here, could construct a save file which has a zip inside it
+        // so that the game loads one save file and the editor loads another.
         let is_zip = zip::ZipArchive::new(std::io::Cursor::new(save_data)).is_ok();
         let save_file = if is_zip {
             SaveFileAccount::load_from_zip_data(save_data, None)?
@@ -356,7 +358,6 @@ impl LoadSave {
         let mut cols = Vec::new();
         cols.push(open_save_btn);
 
-        #[cfg(not(feature = "wasm"))]
         cols.push(self.view_save_path_layout(theme, locale_manager));
 
         cols.push(transfer_code_layout);
@@ -434,7 +435,6 @@ impl LoadSave {
         )
     }
 
-    #[cfg(not(feature = "wasm"))]
     fn view_save_path_layout(
         &self,
         theme: &Theme,
