@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 bcsfe_derive = { path = "./bcsfe_derive" }
-md5 = "0.8"
+md5 = { version = "0.8", optional = true }
 thiserror = { version = "2.0", optional = true }
 rfd = { version = "0.15", optional = true }
 # iced = { version = "0.13", optional = true, features = ["tokio"] }
@@ -27,30 +27,31 @@ hmac = { version = "0.12", optional = true }
 hex = { version = "0.4", optional = true }
 sha1 = { version = "0.10", optional = true }
 zip = { version = "4.3", optional = true }
-adb_client = { version = "2.1", optional = true }
 directories = { version = "6.0", optional = true }
 uuid = { version = "1.18", optional = true, features = ["v4"] }
+tempfile = { version = "3.21", optional = true }
 serde_arrays = { version = "0.2", optional = true }
 
 [workspace]
 members = ["bcsfe_derive"]
 
 [features]
-gui = [
-  "network",
-  "adb",
-  "localization",
-  "dep:iced",
-  "dep:rfd",
-  "dep:toml",
-  "dep:serde",
-  "dep:thiserror",
-  "dep:directories",
-]
 serde = ["dep:serde", "dep:serde_arrays"]
+# gui = [
+#   "network",
+#   "adb",
+#   "localization",
+#   "dep:iced",
+#   "dep:rfd",
+#   "dep:toml",
+#   "dep:serde",
+#   "dep:thiserror",
+#   "dep:directories",
+# ]
 network = [
+  "hash",
+  "serde",
   "dep:reqwest",
-  "dep:serde",
   "dep:getrandom",
   "dep:serde_json",
   "dep:sha2",
@@ -61,5 +62,6 @@ network = [
   "dep:thiserror",
   "dep:uuid",
 ]
-localization = ["dep:fluent", "dep:unic-langid"]
-adb = ["dep:adb_client"]
+localization = ["dep:fluent", "dep:unic-langid", "dep:serde", "dep:toml"]
+adb = ["dep:tempfile"]
+hash = ["dep:md5"]
