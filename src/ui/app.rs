@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
+    process::exit,
     str::FromStr,
 };
 
@@ -12,11 +13,11 @@ use iced::{
 use unic_langid::LanguageIdentifier;
 
 use crate::{
+    asset_manager::AssetManager,
     edits::{Applyable, Edit},
     localization::{LocaleManager, Localizable},
     network::{account_info::SaveFileAccount, password::TransferCodes},
     ui::{
-        asset::AssetManager,
         catfood::{
             CatfoodView, LeadershipView, LegendTicketView, NPView, NormalTicketView,
             PlatinumTicketView, RareTicketView, XPView,
@@ -510,14 +511,11 @@ impl ApplicationState {
 
         if let Some(path) = filepath {
             let save = SaveFileAccount::load_from_path(&path, None)?;
-            // dbg!(
-            //     save.save_file
-            //         .save
-            //         .gv_70100
-            //         .clone()
-            //         .unwrap_or_default()
-            //         .catamin_stages
-            // );
+
+            dbg!(save.save_file.save.gv_140000.unwrap());
+            // dbg!(save.save_file.save.gv_130500.unwrap());
+            exit(1);
+
             app.save_file = Some(LoadedSaveFile {
                 source: super::loadsave::SaveSource::Path(path),
                 save_file: save,
@@ -545,21 +543,6 @@ pub enum Message {
     Codes(TransferCodes),
     ChangedScreen(UIOption),
     Search(String),
-}
-
-pub fn run_wasm() -> Result<(), Box<dyn std::error::Error>> {
-    let lang = LanguageIdentifier::from_str("en")?;
-    let application = iced::application(
-        move || ApplicationState::new(None, LocaleManager::new_wasm(lang.clone())).unwrap(),
-        ApplicationState::update,
-        ApplicationState::view,
-    )
-    .theme(|s| s.theme.clone())
-    .title(|a: &ApplicationState| a.locale_manager.localize("title"));
-
-    application.run()?;
-
-    Ok(())
 }
 
 pub fn run(
