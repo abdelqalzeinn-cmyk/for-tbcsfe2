@@ -902,6 +902,17 @@ impl Save {
 
         ur
     }
+
+    pub fn get_order_ids(&self) -> Vec<String> {
+        self.order_ids.0.iter().map(|v| v.to_string()).collect()
+    }
+
+    pub fn set_order_ids(&mut self, ids: Vec<String>) {
+        self.order_ids.0 = ids
+            .into_iter()
+            .map(|v| v.into())
+            .collect::<Vec<LengthString<i32>>>();
+    }
 }
 
 #[derive(Debug, Clone, Default)]
