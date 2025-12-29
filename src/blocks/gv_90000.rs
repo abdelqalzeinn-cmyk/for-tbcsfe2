@@ -1,7 +1,7 @@
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
-    blocks::gv_90100::UnknownDict90100,
+    blocks::gv_90100::EventStartTimes90100,
     stream::{Assertable, HashMapLength, LengthVec},
 };
 
@@ -9,11 +9,18 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90000Block {
     pub medals: Medals,
-    pub unkown: HashMapLength<i16, i16, bool>,
-    pub unknown_2: HashMapLength<i16, i16, HashMapLength<i16, i16, i16>>,
     #[rw(gvcc)]
-    pub unknown_3: UnknownDict90100,
+    pub wildcat_slots: GamblingEvent,
     _90000: Assertable<90000>,
+}
+
+#[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct GamblingEvent {
+    pub completed: HashMapLength<i16, i16, bool>,
+    pub values: HashMapLength<i16, i16, HashMapLength<i16, i16, i16>>,
+    #[rw(gvcc)]
+    pub start_times: EventStartTimes90100,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
