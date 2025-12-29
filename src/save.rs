@@ -5,7 +5,6 @@ use crate::{
     country_code::CountryCode,
     game::main_story::{StoryChapters, TOTAL_STORY_CHAPTERS},
     game_version::GameVersion,
-    hash::{add_hash, detect_cc},
     stream::{
         HashMapLength, LengthString, LengthVec, NewResultCtx, Readable, ReadableNoOptions,
         StreamError, StreamResult, VariableLengthInt, VecArgs, VecArgsLength, Writable,
@@ -258,8 +257,9 @@ pub struct SaveFile {
 }
 
 impl SaveFile {
+    #[cfg(feature = "hash")]
     pub fn load_detect_cc(data: &[u8]) -> StreamResult<SaveFile> {
-        let cc = detect_cc(data).ok_or(StreamError::new_str(
+        let cc = crate::hash::detect_cc(data).ok_or(StreamError::new_str(
             "could not detect country code",
             u64::MAX,
         ))?;
@@ -274,19 +274,24 @@ impl SaveFile {
         SaveFile::read(&mut reader, cc)
     }
 
+    #[cfg(feature = "hash")]
     pub fn write_with_hash(&self) -> StreamResult<Vec<u8>> {
+        let data = self.write_to_data()?;
+
+        crate::hash::add_hash(&data, self.gvcc.cc.into())
+            .ok_or(StreamError::new_str("failed to add hash", u64::MAX))
+    }
+    pub fn write_to_data(&self) -> StreamResult<Vec<u8>> {
         let mut writer = Cursor::new(Vec::new());
         self.write_no_opts(&mut writer)?;
 
         let data = writer.into_inner();
 
-        let data = add_hash(&data, self.gvcc.cc.into())
-            .ok_or(StreamError::new_str("failed to add hash", u64::MAX))?;
-
         Ok(data)
     }
 
-    pub fn write_to_path(&self, path: &Path) -> StreamResult<()> {
+    #[cfg(feature = "hash")]
+    pub fn write_to_path_with_hash(&self, path: &Path) -> StreamResult<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -297,6 +302,18 @@ impl SaveFile {
         Ok(())
     }
 
+    pub fn write_to_path(&self, path: &Path) -> StreamResult<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let data = self.write_to_data()?;
+
+        std::fs::write(path, &data)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "hash")]
     pub fn load_from_path_detect_cc(path: &Path) -> StreamResult<SaveFile> {
         let data = std::fs::read(path)?;
 
@@ -308,6 +325,8 @@ impl SaveFile {
 
         Self::load_cc(&data, cc)
     }
+
+    #[cfg(feature = "hash")]
     pub fn load_from_path(path: &Path, cc: Option<CountryCode>) -> StreamResult<SaveFile> {
         match cc {
             Some(cc) => Self::load_from_path_cc(path, cc),
