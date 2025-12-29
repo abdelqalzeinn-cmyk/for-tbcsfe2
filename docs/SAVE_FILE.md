@@ -17,21 +17,21 @@ for this.
 
 Note that the `Readable` and `Writable` derive proc macros are found in `bcsfe_derive`.
 
-Most game version blocks in the save file end with the game version, so a `stream::Assertable`
-field can be used to ensure it does end with the game version. This field should be called
-`_XXXXXX` where `XXXXXX` is the game version.
+Most game version blocks in the save file end with the game version, so the `end_assert` attribute
+should be added to the struct by adding a `#[rw(end_assert = XXXXXX)]` where `XXXXXX` is the game
+version. This will read a 32 integer after reading everything else in the struct and compare it to
+that value. It will also add code to write that value to the end of the struct during save file
+writing.
 
 Here is an example:
 
 ```rust
 use bcsfe_derive::{Readable, Writable};
-use crate::stream::Assertable;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[rw(end_assert = 140500)]
 pub struct GV140500Block {
-  // struct content here
-  ..
-  _140500: Assertable<140500>
+  // struct content here...
 }
 
 ```

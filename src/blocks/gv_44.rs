@@ -3,13 +3,14 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, LengthString, Readable, ReadableNoOptions, StreamResult, VecArgs,
-        VecArgsLength, Writable, WritableNoOptions,
+        LengthString, Readable, ReadableNoOptions, StreamResult, VecArgs, VecArgsLength, Writable,
+        WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 44)]
 pub struct GV44Block {
     #[rw(gvcc)]
     pub item_reward_chapters: ItemRewardChapters<bool>,
@@ -21,7 +22,6 @@ pub struct GV44Block {
     pub backup_state: i32,
     #[rw(jp = false)]
     pub ub2: Option<bool>,
-    pub _44: Assertable<44>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -1,16 +1,16 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, HashMapLength, LengthVec};
+use crate::stream::{HashMapLength, LengthVec};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 80000)]
 pub struct GV80000Block {
     #[rw(gvcc)]
     pub gold_pass: GoldPass,
     pub cat_talents: HashMapLength<i32, i32, LengthVec<i32, Talent>>,
     pub np: i32,
     pub unknown: bool,
-    pub _80000: Assertable<80000>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

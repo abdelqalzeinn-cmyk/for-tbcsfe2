@@ -2,11 +2,12 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     blocks::gv_120000::NewChapters,
-    stream::{Assertable, HashMapLength, LengthVec},
+    stream::{HashMapLength, LengthVec},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 140000)]
 pub struct GV140000Block {
     pub u1: i32,
     pub u2: f64,
@@ -17,5 +18,4 @@ pub struct GV140000Block {
     pub u7: bool,
     pub u8: f64,
     pub u9: HashMapLength<i16, i16, i8>,
-    pub _140000: Assertable<140000>,
 }

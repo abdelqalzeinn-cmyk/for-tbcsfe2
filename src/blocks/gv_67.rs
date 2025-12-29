@@ -2,11 +2,12 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::{ChaptersGeneric, GenericChapterArgs, StageClear},
-    stream::{Assertable, LengthString, LengthVec, Readable, StreamResult, Writable},
+    stream::{LengthString, LengthVec, Readable, StreamResult, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 67)]
 pub struct GV67Block {
     #[rw(gvcc)]
     pub ranking: DojoRanking,
@@ -15,7 +16,6 @@ pub struct GV67Block {
     pub challenge: ChallengeChapters,
     pub challenge_scores: LengthVec<i32, i32>,
     pub show_challenge_popup: bool,
-    pub _67: Assertable<67>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

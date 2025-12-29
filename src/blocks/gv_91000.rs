@@ -2,7 +2,7 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::GVCC,
-    stream::{Assertable, LengthString, Readable, StreamResult, VecArgs, Writable},
+    stream::{LengthString, Readable, StreamResult, VecArgs, Writable},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -46,8 +46,8 @@ impl Writable for SlotNames {
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 91000)]
 pub struct GV91000Block {
     #[rw(gvcc)]
     pub slot_names: SlotNames,
-    pub _91000: Assertable<91000>,
 }

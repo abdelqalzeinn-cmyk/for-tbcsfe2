@@ -2,11 +2,12 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::GVCC,
-    stream::{Assertable, Readable, StreamResult, VecArgs, Writable},
+    stream::{Readable, StreamResult, VecArgs, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 49)]
 pub struct GV49Block {
     #[rw(en = false, kr = false, tw = false)]
     pub energy_notification: Option<bool>,
@@ -18,7 +19,6 @@ pub struct GV49Block {
     pub next_week_timestamp: f64,
     pub catfood_beginner_expired: [bool; 3],
     pub rank_up_sale_value: i32,
-    pub _49: Assertable<49>,
 }
 
 #[derive(Debug, Clone, Default)]

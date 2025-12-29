@@ -17,6 +17,12 @@ struct Opts {
     tw: Option<bool>,
 }
 
+#[derive(Debug, Copy, Clone, FromAttributes, Default)]
+#[darling(default, attributes(rw))]
+struct StructOpts {
+    end_assert: Option<u32>,
+}
+
 impl Opts {
     fn is_empty(&self) -> bool {
         self.min_gv.is_none()
@@ -53,6 +59,8 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
         },
         _ => panic!("Readable can only be derived for structs"),
     };
+
+    let struct_opts = StructOpts::from_attributes(&input.attrs).expect("Wrong options");
 
     let all_empty = fields.iter().all(|f| f.attrs.is_empty());
 
@@ -120,6 +128,22 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
         }
     });
 
+    let assertable_toks = if let Some(assertable) = struct_opts.end_assert {
+        quote! {
+            let pos = std::io::Seek::stream_position(reader)?;
+            let name = stringify!(#name);
+            let assertable = #assertable;
+            let value: u32 = crate::stream::NewResultCtx::add_context(crate::stream::ReadableNoOptions::read_no_opts(reader), || format!("read u32 for end assert for {name}"))?;
+
+
+            if value != #assertable {
+                return Err(crate::stream::StreamError::new(std::io::Error::other(format!("assertion error. expected: {assertable}, got {value} for {name}")), pos));
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = if all_empty {
         quote! {
             impl crate::stream::Readable for #name {
@@ -128,9 +152,13 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
                     reader: &mut R,
                     _args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<Self> {
-                    Ok(Self {
+                    let val = Ok(Self {
                         #(#read_field_impls)*
-                    })
+                    });
+
+                    #assertable_toks
+
+                    val
                 }
             }
         }
@@ -142,9 +170,13 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
                     reader: &mut R,
                     args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<Self> {
-                    Ok(Self {
+                    let val = Ok(Self {
                         #(#read_field_impls)*
-                    })
+                    });
+
+                    #assertable_toks
+
+                    val
                 }
             }
         }
@@ -166,6 +198,8 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
     };
 
     let all_empty = fields.iter().all(|f| f.attrs.is_empty());
+
+    let struct_opts = StructOpts::from_attributes(&input.attrs).expect("Wrong options");
 
     let write_field_impls = fields.iter().map(|field| {
         let opts = Opts::from_attributes(&field.attrs).expect("Wrong options");
@@ -236,6 +270,14 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
         }
     });
 
+    let assertable_toks = if let Some(assertable) = struct_opts.end_assert {
+        quote! {
+            crate::stream::WritableNoOptions::write_no_opts(&#assertable, writer)?;
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = if all_empty {
         quote! {
             impl crate::stream::Writable for #name {
@@ -246,6 +288,7 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
                     _args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<()> {
                     #(#write_field_impls)*
+                    #assertable_toks
                     Ok(())
                 }
             }
@@ -260,6 +303,7 @@ pub fn writeable_derive(input: TokenStream) -> TokenStream {
                     args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<()> {
                     #(#write_field_impls)*
+                    #assertable_toks
                     Ok(())
                 }
             }

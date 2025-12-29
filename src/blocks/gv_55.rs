@@ -3,13 +3,14 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, Writable,
+        HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, Writable,
         WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 55)]
 pub struct GV55Block {
     pub gamatoto_skin: i32,
     pub platinum_tickets: i32,
@@ -22,7 +23,6 @@ pub struct GV55Block {
     pub announcements: [(i32, i32); 16],
     pub backup_counter: i32,
     pub uknown: [i32; 3],
-    pub _55: Assertable<55>,
 }
 
 #[derive(Debug, Clone)]

@@ -803,31 +803,3 @@ impl<
         Ok(())
     }
 }
-
-#[derive(Debug, Copy, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Assertable<const EX: i32>;
-
-impl<const EX: i32> Readable for Assertable<EX> {
-    type Args<'a> = ();
-    fn read<R: Read + Seek>(reader: &mut R, _args: Self::Args<'_>) -> StreamResult<Self> {
-        let pos = reader.stream_position()?;
-        let value = i32::read_no_opts(reader).add_context(|| "read i32 for assertable")?;
-
-        if value != EX {
-            Err(StreamError::new(
-                std::io::Error::other(format!("assertion error. expected: {EX}, got {value}")),
-                pos,
-            ))
-        } else {
-            Ok(Self)
-        }
-    }
-}
-
-impl<const EX: i32> Writable for Assertable<EX> {
-    type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
-        EX.write_no_opts(writer)
-    }
-}

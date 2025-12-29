@@ -2,16 +2,16 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     blocks::gv_90100::EventStartTimes90100,
-    stream::{Assertable, HashMapLength, LengthVec},
+    stream::{HashMapLength, LengthVec},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90000)]
 pub struct GV90000Block {
     pub medals: Medals,
     #[rw(gvcc)]
     pub wildcat_slots: GamblingEvent,
-    _90000: Assertable<90000>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

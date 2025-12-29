@@ -5,19 +5,18 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, HashMapLength, Readable, ReadableNoOptions, StreamResult, Writable,
-        WritableNoOptions,
+        HashMapLength, Readable, ReadableNoOptions, StreamResult, Writable, WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90700)]
 pub struct GV90700Block {
     #[rw(gvcc)]
     pub talent_orbs: TalentOrbs,
     pub unknown: HashMapLength<i16, i16, HashMapLength<i8, i8, i16>>,
     pub unknown_2: bool,
-    pub _90700: Assertable<90700>,
 }
 
 impl Default for TalentOrbs {

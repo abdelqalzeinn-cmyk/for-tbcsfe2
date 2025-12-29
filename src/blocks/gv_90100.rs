@@ -5,8 +5,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, HashMapLength, Readable, ReadableNoOptions, StreamResult, Writable,
-        WritableNoOptions,
+        HashMapLength, Readable, ReadableNoOptions, StreamResult, Writable, WritableNoOptions,
     },
 };
 
@@ -92,10 +91,10 @@ impl Writable for EventStartTimes90100 {
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90100)]
 pub struct GV90100Block {
     pub unknown_1: i16,
     pub unknown_2: i16,
     pub unknown_date: i32,
     pub unknown_timestamp: f64,
-    pub _90100: Assertable<90100>,
 }

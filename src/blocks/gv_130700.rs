@@ -1,11 +1,12 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, HashMapLength};
+use crate::stream::HashMapLength;
 
 type InnerValue = (i16, i32, HashMapLength<i16, i16, i16>);
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 130700)]
 pub struct GV130700Block {
     #[rw(en = false, kr = false, tw = false)]
     pub u1: Option<i16>,
@@ -18,5 +19,4 @@ pub struct GV130700Block {
     pub u8: i8,
     pub u9: f64,
     pub u10: HashMapLength<i16, i16, InnerValue>,
-    pub _130700: Assertable<130700>,
 }

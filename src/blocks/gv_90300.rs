@@ -2,16 +2,16 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::{ChaptersGeneric, GenericChapterArgs, LengthType, StageClear},
-    stream::{Assertable, HashMapLength, LengthVec, Readable, StreamResult, VecArgs, Writable},
+    stream::{HashMapLength, LengthVec, Readable, StreamResult, VecArgs, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90300)]
 pub struct GV90300Block {
     pub unknown: LengthVec<i16, Unknown90300>,
     pub unknown_2: HashMapLength<i16, i32, f64>,
     pub gauntlet_chapters: GauntletChapters,
-    pub _90300: Assertable<90300>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -1,12 +1,12 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, HashMapLength};
+use crate::stream::HashMapLength;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 120200)]
 pub struct GV120200Block {
     pub u1: bool,
     pub u2: i16,
     pub u3: HashMapLength<i8, i16, i16>,
-    pub _120200: Assertable<120200>,
 }

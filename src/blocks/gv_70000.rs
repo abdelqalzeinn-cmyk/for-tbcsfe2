@@ -2,14 +2,14 @@ use bcsfe_derive::{Readable, Writable};
 
 use crate::{
     save::{ChaptersGeneric, GenericChapterArgs, StageClear},
-    stream::{Assertable, Readable, StreamResult, VecArgs, Writable},
+    stream::{Readable, StreamResult, VecArgs, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 76)]
 pub struct GV70000Block {
     pub uncanny_chapters: UncannyChapters,
-    pub _76: Assertable<76>,
 }
 
 #[derive(Debug, Clone, Default)]

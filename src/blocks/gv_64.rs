@@ -3,18 +3,18 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs,
-        Writable, WritableNoOptions,
+        HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable,
+        WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 64)]
 pub struct GV64Block {
     pub base_materials: LengthVec<i32, i32>,
     #[rw(gvcc)]
     pub ototo: Ototo,
-    pub _64: Assertable<64>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

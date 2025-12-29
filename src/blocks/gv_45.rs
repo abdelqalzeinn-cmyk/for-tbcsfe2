@@ -1,11 +1,12 @@
 use crate::{
     game::main_story::TOTAL_CLEAR_TIME_STAGES,
-    stream::{Assertable, LengthVec, Readable, Writable, WritableNoOptions},
+    stream::{LengthVec, Readable, Writable, WritableNoOptions},
 };
 use bcsfe_derive::{Readable, Writable};
 
 #[derive(Debug, Clone, Readable, Writable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 45)]
 pub struct GV45Block {
     pub itf1_complete: i32,
     pub itf_timed_scores: [StaticChapter<TOTAL_CLEAR_TIME_STAGES>; 3],
@@ -13,7 +14,6 @@ pub struct GV45Block {
     #[rw(min_gv = 27)]
     pub combo_unlocks: Option<LengthVec<i32, i32>>,
     pub combo_unlocked_10k_ur: bool,
-    pub _45: Assertable<45>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -54,7 +54,6 @@ impl Default for GV45Block {
             title_chapter_bg: 0,
             combo_unlocks: None,
             combo_unlocked_10k_ur: false,
-            _45: Assertable,
         }
     }
 }

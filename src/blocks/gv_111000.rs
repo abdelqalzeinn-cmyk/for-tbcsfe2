@@ -1,9 +1,10 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, LengthVec};
+use crate::stream::LengthVec;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 111000)]
 pub struct GV111000Block {
     pub u1: i32,
     pub u2: i16,
@@ -32,5 +33,4 @@ pub struct GV111000Block {
     pub u25: LengthVec<i16, i16>,
     pub u26: [bool; 14],
     pub labyrinth_medals: LengthVec<i8, i16>,
-    pub _111000: Assertable<111000>,
 }

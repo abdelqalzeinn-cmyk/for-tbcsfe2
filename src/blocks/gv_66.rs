@@ -5,19 +5,19 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::{ChaptersGeneric, GVCC, GenericChapterArgs, StageClear},
     stream::{
-        Assertable, HashMapLength, Readable, ReadableNoOptions, StreamResult, VecArgs,
-        VecArgsLength, Writable, WritableNoOptions,
+        HashMapLength, Readable, ReadableNoOptions, StreamResult, VecArgs, VecArgsLength, Writable,
+        WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 66)]
 pub struct GV66Block {
     pub tower: TowerChapters,
     #[rw(gvcc)]
     pub missions: Missions,
     pub tower_item_obtain_states: TowerItemObtainStates,
-    pub _66: Assertable<66>,
 }
 
 #[derive(Debug, Clone, Default)]

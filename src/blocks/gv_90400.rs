@@ -4,19 +4,19 @@ use crate::{
     blocks::gv_90300::GauntletChapters,
     save::{Formi8, GVCC},
     stream::{
-        Assertable, HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, Writable,
+        HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, Writable,
         WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90400)]
 pub struct GV90400Block {
     pub enigma_clears: GauntletChapters,
     #[rw(gvcc)]
     pub enigma: Engima,
     pub cleared_slots: ClearedSlots,
-    pub _90400: Assertable<90400>,
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]

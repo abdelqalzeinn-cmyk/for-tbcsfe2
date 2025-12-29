@@ -3,19 +3,18 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::{ChaptersGeneric, GenericChapterArgs, LengthType, TotalStages},
     stream::{
-        Assertable, LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable,
-        WritableNoOptions,
+        LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable, WritableNoOptions,
     },
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 80600)]
 pub struct GV80600Block {
     pub unknown_vec: LengthVec<i16, i32>,
     pub legend_quest_chapters: LegendQuest,
     pub uknown_short: i16,
     pub unknown_byte: i8,
-    pub _80600: Assertable<80600>,
 }
 
 impl TotalStages for LegendQuestStage {

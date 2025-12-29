@@ -3,7 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     save::GVCC,
     stream::{
-        Assertable, NewResultCtx, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable,
+        NewResultCtx, Readable, ReadableNoOptions, StreamResult, VecArgs, Writable,
         WritableNoOptions,
     },
 };
@@ -101,10 +101,10 @@ impl Writable for GatyaSeed {
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 47)]
 pub struct GV47Block {
     #[rw(gvcc)]
     pub event_seed: GatyaSeed,
     #[rw(gvcc)]
     pub event_capsules: EventCapsules,
-    pub _47: Assertable<47>,
 }

@@ -1,12 +1,10 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::{
-    blocks::gv_90300::GauntletChapters,
-    stream::{Assertable, HashMapLength},
-};
+use crate::{blocks::gv_90300::GauntletChapters, stream::HashMapLength};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90500)]
 pub struct GV90500Block {
     pub collab_gauntlets: GauntletChapters,
     pub u1: bool,
@@ -19,7 +17,6 @@ pub struct GV90500Block {
     pub u4: Option<Unknown90500_130700>,
     #[rw(min_gv = 140100)]
     pub u5: Option<HashMapLength<i16, i32, f64>>,
-    pub _90500: Assertable<90500>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

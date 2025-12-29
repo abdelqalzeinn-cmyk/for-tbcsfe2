@@ -1,25 +1,13 @@
-use bcsfe_derive::{Readable, Writable};
-
 use crate::{
     country_code::CountryCode,
     save::GVCC,
-    stream::{Assertable, HashMapLength, LengthString, Readable, StreamResult, Writable},
+    stream::{HashMapLength, LengthString, Readable, StreamError, StreamResult, Writable},
 };
-
-#[derive(Debug, Clone, Readable, Writable, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct GV120700BlockInner {
-    pub u1: HashMapLength<i8, LengthString<i32>, LengthString<i32>>, // FIXME: may not be a hashmap
-    #[rw(jp = false)]
-    pub _120700: Option<Assertable<120700>>,
-    #[rw(en = false, kr = false, tw = false)]
-    pub _130000: Option<Assertable<130000>>,
-}
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV120700Block {
-    pub inner: Option<GV120700BlockInner>,
+    pub u1: Option<HashMapLength<i8, LengthString<i32>, LengthString<i32>>>,
 }
 
 impl Readable for GV120700Block {
@@ -34,11 +22,24 @@ impl Readable for GV120700Block {
         };
 
         if args.gv.0 < min_gv {
-            Ok(Self { inner: None })
+            Ok(Self { u1: None })
         } else {
-            Ok(Self {
-                inner: Some(GV120700BlockInner::read(reader, args)?),
-            })
+            let u1 = <HashMapLength<i8, LengthString<i32>, LengthString<i32>>>::read(reader, ())?;
+            let se = Self { u1: Some(u1) };
+
+            let pos = reader.stream_position()?;
+            let gv = u32::read(reader, ())?;
+
+            if gv != min_gv {
+                return Err(StreamError::new(
+                    std::io::Error::other(format!(
+                        "assertion error, expected: {min_gv}, got: {gv}"
+                    )),
+                    pos,
+                ));
+            }
+
+            Ok(se)
         }
     }
 }
@@ -58,10 +59,14 @@ impl Writable for GV120700Block {
         if args.gv.0 < min_gv {
             Ok(())
         } else {
-            self.inner
+            self.u1
                 .as_ref()
-                .unwrap_or(&GV120700BlockInner::default())
-                .write(writer, args)
+                .unwrap_or(&HashMapLength::default())
+                .write(writer, ())?;
+
+            min_gv.write(writer, ())?;
+
+            Ok(())
         }
     }
 }

@@ -3,17 +3,17 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{
     blocks::gv_67::DojoRanking,
     save::GVCC,
-    stream::{Assertable, HashMapLength, Readable, StreamResult, VecArgs, VecArgsLength, Writable},
+    stream::{HashMapLength, Readable, StreamResult, VecArgs, VecArgsLength, Writable},
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 140200)]
 pub struct GV140200Block {
     #[rw(gvcc)]
     pub dojo_ranking_2: DojoRanking2,
     pub unknown: HashMapLength<i8, i32, f64>,
     pub hundred_million_ticket: i32,
-    pub _140200: Assertable<140200>,
 }
 
 #[derive(Debug, Clone, Default)]

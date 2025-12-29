@@ -1,9 +1,10 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, LengthVec};
+use crate::stream::LengthVec;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 53)]
 pub struct GV53Block {
     pub time_since_last_check_cumulative: f64,
     pub server_timestamp: f64,
@@ -18,7 +19,6 @@ pub struct GV53Block {
     pub gamatoto: Gamatoto,
     pub unlock_popups: LengthVec<i32, bool>,
     pub ex_stages: LengthVec<i32, [i32; 12]>,
-    pub _53: Assertable<53>,
 }
 
 impl GV53Block {

@@ -1,12 +1,13 @@
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{
-    Assertable, HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs,
-    VecArgsLength, Writable, WritableNoOptions,
+    HashMapLength, LengthVec, Readable, ReadableNoOptions, StreamResult, VecArgs, VecArgsLength,
+    Writable, WritableNoOptions,
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 100900)]
 pub struct GV100900Block {
     pub aku: AkuChapters,
     pub u1: bool,
@@ -15,7 +16,6 @@ pub struct GV100900Block {
     pub u4: HashMapLength<i16, i16, f64>,
     pub u5: HashMapLength<i16, i16, f64>,
     pub u6: bool,
-    pub _100900: Assertable<100900>,
 }
 
 #[derive(Debug, Clone, Default)]

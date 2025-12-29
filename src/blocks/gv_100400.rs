@@ -1,11 +1,11 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, LengthVec};
+use crate::stream::LengthVec;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 100400)]
 pub struct GV100400Block {
     pub event_capsules_2: LengthVec<i8, i32>,
     pub two_battle_lines: bool,
-    pub _100400: Assertable<100400>,
 }

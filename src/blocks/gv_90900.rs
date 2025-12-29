@@ -1,14 +1,14 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, LengthVec};
+use crate::stream::LengthVec;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 90900)]
 pub struct GV90900Block {
     pub cat_shrine: CatShrine,
     pub u1: f64,
     pub u2: f64,
-    pub _90900: Assertable<90900>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]

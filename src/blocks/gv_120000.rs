@@ -1,13 +1,13 @@
 use bcsfe_derive::{Readable, Writable};
 
-use crate::stream::{Assertable, LengthVec};
+use crate::stream::LengthVec;
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[rw(end_assert = 120000)]
 pub struct GV120000Block {
     pub zero_legends: NewChapters,
     pub unknown: i8,
-    pub _120000: Assertable<120000>,
 }
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
