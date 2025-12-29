@@ -1,44 +1,38 @@
 use std::{
     fmt::Display,
     io::{BufRead, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::Stdio,
 };
 
-use adb_client::DeviceShort;
-
 use crate::{
-    adb::adb_handler::{AdbHandler, gen_temp_path},
+    adb::adb_handler::{AdbDevice, AdbError, AdbHandler, find_adb_path, gen_temp_path},
     ext_source::ExternalSaveSource,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct WaydroidHandler {
     adb: AdbHandler,
 }
 
 pub async fn is_waydroid_installed() -> bool {
-    if cfg!(feature = "wasm") {
-        false
-    } else {
-        std::thread::spawn(|| {
-            std::process::Command::new("waydroid")
-                .arg("--version")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .is_ok_and(|s| s.success())
-        })
-        .join()
-        .unwrap_or(false)
-    }
+    std::thread::spawn(|| {
+        std::process::Command::new("waydroid")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    })
+    .join()
+    .unwrap_or(false)
 }
 
 #[derive(Debug)]
 pub enum WaydroidError {
     Io(std::io::Error),
     ErrorStatus(String),
-    Adb(adb_client::RustADBError),
+    Adb(AdbError),
     PermissionDenied,
 }
 
@@ -55,16 +49,6 @@ impl Display for WaydroidError {
             }
         )
     }
-}
-
-fn escape_command(cmd: Vec<String>) -> String {
-    cmd.iter()
-        .map(|arg| {
-            let escaped = arg.replace("'", "'\\''");
-            format!("'{}'", escaped)
-        })
-        .collect::<Vec<String>>()
-        .join(" ")
 }
 
 impl WaydroidHandler {
@@ -89,7 +73,15 @@ impl WaydroidHandler {
             if let Some(mut stdin) = command.stdin.take() {
                 for cmd in cmds {
                     stdin
-                        .write_all(escape_command(cmd).as_bytes())
+                        .write_all(
+                            super::adb_handler::escape_command(
+                                cmd.iter()
+                                    .map(|v| v.as_str())
+                                    .collect::<Vec<&str>>()
+                                    .as_slice(),
+                            )
+                            .as_bytes(),
+                        )
                         .map_err(WaydroidError::Io)?;
                     stdin.write_all(";".as_bytes()).map_err(WaydroidError::Io)?;
                 }
@@ -114,6 +106,7 @@ impl WaydroidHandler {
 
         self.adb
             .adb_push_file(&mut std::io::Cursor::new(input), &temp_path)
+            .await
             .map_err(WaydroidError::Adb)?;
 
         // reduces 1 pkexec call
@@ -135,6 +128,7 @@ impl WaydroidHandler {
 
         self.adb
             .adb_pull_file(&temp_path, &mut output)
+            .await
             .map_err(WaydroidError::Adb)?;
 
         Ok(output.into_inner())
@@ -159,17 +153,21 @@ impl WaydroidHandler {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WaydroidGameHandler {
     handler: WaydroidHandler,
 }
 
 impl WaydroidGameHandler {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(adb_path: Option<PathBuf>) -> Option<Self> {
+        Some(Self {
+            handler: WaydroidHandler {
+                adb: AdbHandler::new(adb_path.unwrap_or(find_adb_path()?)),
+            },
+        })
     }
 
-    pub fn set_selected_device(&mut self, device: DeviceShort) {
+    pub fn set_selected_device(&mut self, device: AdbDevice) {
         self.handler.adb.set_device(device);
     }
 }

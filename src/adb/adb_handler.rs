@@ -1,17 +1,23 @@
 use std::{
-    io::BufRead,
-    net::{Ipv4Addr, SocketAddrV4},
+    fmt::Display,
+    io::Write,
     path::{Path, PathBuf},
 };
 
-use adb_client::{ADBDeviceExt, ADBServer, DeviceShort};
+// use adb_client::{ADBDeviceExt, ADBServer, DeviceShort};
 
 use crate::ext_source::ExternalSaveSource;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AdbDevice {
+    pub id: String,
+    pub state: String,
+}
+
+#[derive(Debug)]
 pub struct AdbHandler {
-    pub server: adb_client::ADBServer,
-    pub selected_device: Option<DeviceShort>,
+    pub adb_path: PathBuf,
+    pub selected_device: Option<AdbDevice>,
 }
 
 pub fn find_adb_path() -> Option<PathBuf> {
@@ -30,147 +36,242 @@ pub fn find_adb_path() -> Option<PathBuf> {
 }
 
 pub async fn is_adb_installed(adb_path: Option<PathBuf>) -> bool {
-    if cfg!(feature = "wasm") {
-        false
-    } else {
-        std::thread::spawn(|| {
-            std::process::Command::new(adb_path.unwrap_or(PathBuf::from("adb")))
-                .arg("version")
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
-                .is_ok_and(|s| s.success())
-        })
-        .join()
-        .unwrap_or(false)
+    std::thread::spawn(|| {
+        std::process::Command::new(adb_path.unwrap_or(PathBuf::from("adb")))
+            .arg("version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    })
+    .join()
+    .unwrap_or(false)
+}
+
+#[derive(Debug)]
+pub enum AdbError {
+    JoinThread,
+    AdbRun(std::io::Error),
+    NotSuccess(Vec<String>, String, String),
+    DecodeString(std::string::FromUtf8Error),
+    NoDeviceSelected,
+    CreateTempFile(std::io::Error),
+    ReadData(std::io::Error),
+    WriteData(std::io::Error),
+    PermissionDenied,
+    CantFindAdb,
+}
+
+impl Display for AdbError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AdbError::JoinThread => "failed to join thread".to_string(),
+                AdbError::AdbRun(error) => format!("failed to run adb command: {error}"),
+                AdbError::NotSuccess(args, stderr, stdout) => format!(
+                    "failed to run command: {}, stdout: {stdout}, stderr: {stderr}",
+                    args.join(" ")
+                ),
+                AdbError::DecodeString(e) => format!("failed to decode utf8 string: {e}"),
+                AdbError::NoDeviceSelected => "no devices selected".to_string(),
+                AdbError::CreateTempFile(error) => format!("failed to create temp file: {error}"),
+                AdbError::ReadData(error) => format!("failed to read data: {error}"),
+                AdbError::WriteData(error) => format!("failed to write data: {error}"),
+                AdbError::PermissionDenied => format!("permission denied, do you have root?"),
+                AdbError::CantFindAdb => format!("failed to find adb binary"),
+            }
+        )
     }
 }
 
+pub fn escape_command(cmd: &[&str]) -> String {
+    cmd.iter()
+        .map(|arg| {
+            let escaped = arg.replace("'", "'\\''");
+            format!("'{}'", escaped)
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
 impl AdbHandler {
-    pub fn new(adb_path: Option<String>) -> Self {
+    pub fn new(adb_path: PathBuf) -> Self {
         Self {
-            server: ADBServer::new_from_path(
-                SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 5037),
-                adb_path,
-            ),
+            adb_path,
             selected_device: None,
         }
     }
 
-    pub async fn get_devices() -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
-        std::thread::spawn(move || adb_client::ADBServer::default().devices())
-            .join()
-            .map_err(|_| {
-                adb_client::RustADBError::IOError(std::io::Error::other("failed to join"))
-            })?
+    pub async fn run_adb_command(&self, cmd: &[&str]) -> Result<String, AdbError> {
+        let adb_path = self.adb_path.clone();
+        let cmd: Vec<String> = cmd.iter().map(|v| v.to_string()).collect();
+        let selected_device = self.get_selected_device().cloned();
+        std::thread::spawn(move || {
+            let mut command = std::process::Command::new(adb_path);
+            if let Some(dev) = selected_device {
+                command.arg("-s").arg(dev.id);
+            }
+            let command = command.args(&cmd);
+            let output = command.output().map_err(|e| AdbError::AdbRun(e))?;
+
+            if !output.status.success() {
+                return Err(AdbError::NotSuccess(
+                    command
+                        .get_args()
+                        .map(|v| v.to_string_lossy().to_string())
+                        .collect(),
+                    String::from_utf8_lossy(&output.stderr).into_owned(),
+                    String::from_utf8_lossy(&output.stdout).into_owned(),
+                ));
+            }
+
+            let output2: String =
+                String::from_utf8(output.stdout).map_err(|e| AdbError::DecodeString(e))?;
+
+            Ok(output2)
+        })
+        .join()
+        .map_err(|_| AdbError::JoinThread)?
     }
 
-    pub fn with_device(mut self, device: DeviceShort) -> Self {
+    pub async fn get_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
+        let output = self.run_adb_command(&["devices"]).await?;
+
+        let mut devices = Vec::new();
+
+        for line in output.lines().skip(1) {
+            let device = line.split_once("\t");
+
+            if let Some((device_id, status)) = device {
+                devices.push(AdbDevice {
+                    id: device_id.to_string(),
+                    state: status.to_string(),
+                })
+            }
+        }
+
+        Ok(devices)
+    }
+
+    pub fn with_device(mut self, device: AdbDevice) -> Self {
         self.selected_device = Some(device);
 
         self
     }
-    pub fn set_device(&mut self, device: DeviceShort) {
+    pub fn set_device(&mut self, device: AdbDevice) {
         self.selected_device = Some(device);
     }
 
-    pub fn get_selected_device(&self) -> Option<&DeviceShort> {
+    pub fn get_selected_device(&self) -> Option<&AdbDevice> {
         self.selected_device.as_ref()
     }
-
-    pub fn get_selected_device_or_default(
-        &mut self,
-    ) -> Result<adb_client::ADBServerDevice, adb_client::RustADBError> {
-        if let Some(sel) = self.get_selected_device() {
-            Ok(adb_client::ADBServerDevice::new(
-                sel.identifier.clone(),
-                None,
-            ))
-        } else {
-            self.server.get_device()
-        }
+    pub fn get_selected_device_err(&self) -> Result<&AdbDevice, AdbError> {
+        self.selected_device
+            .as_ref()
+            .ok_or(AdbError::NoDeviceSelected)
     }
 
-    pub async fn run_command(&mut self, cmd: &[&str]) -> Result<Vec<u8>, adb_client::RustADBError> {
-        let mut device = self.get_selected_device_or_default()?;
-        let cmd: Vec<String> = cmd.into_iter().map(|v| v.to_string()).collect();
-        std::thread::spawn(move || {
-            let mut writer = std::io::Cursor::new(Vec::new());
+    pub async fn run_shell_command(&mut self, cmd: &[&str]) -> Result<String, AdbError> {
+        let escaped_args = escape_command(cmd);
 
-            let string_slices: &[&str] = &cmd.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-            device.shell_command(string_slices, &mut writer)?;
-
-            Ok(writer.into_inner())
-        })
-        .join()
-        .map_err(|_| adb_client::RustADBError::IOError(std::io::Error::other("failed to join")))?
+        self.run_adb_command(&["shell", &escaped_args]).await
     }
 
-    pub fn adb_push_file<R: std::io::Read>(
+    pub async fn adb_push_file<R: std::io::Read>(
         &mut self,
         input: &mut R,
         path: &Path,
-    ) -> Result<(), adb_client::RustADBError> {
-        self.get_selected_device_or_default()?
-            .push(input, path.to_string_lossy())
+    ) -> Result<(), AdbError> {
+        let mut temp_path =
+            tempfile::NamedTempFile::new().map_err(|e| AdbError::CreateTempFile(e))?;
+        let mut data = Vec::new();
+        input
+            .read_to_end(&mut data)
+            .map_err(|e| AdbError::ReadData(e))?;
+
+        temp_path
+            .write_all(&data)
+            .map_err(|e| AdbError::WriteData(e))?;
+        self.run_adb_command(&[
+            "push",
+            &temp_path.into_temp_path().to_string_lossy(),
+            &path.to_string_lossy(),
+        ])
+        .await?;
+
+        Ok(())
     }
 
     pub async fn push_file<R: std::io::Read>(
         &mut self,
         input: &mut R,
         path: &Path,
-    ) -> Result<(), adb_client::RustADBError> {
+    ) -> Result<(), AdbError> {
         let temp_path = gen_temp_path(path);
-        self.adb_push_file(input, &temp_path)?;
+        self.adb_push_file(input, &temp_path).await?;
 
         if let Err(e) = self
-            .run_command(&["mv", &temp_path.to_string_lossy(), &path.to_string_lossy()])
+            .run_shell_command(&["mv", &temp_path.to_string_lossy(), &path.to_string_lossy()])
             .await
         {
-            self.run_command(&["rm", &temp_path.to_string_lossy()])
+            self.run_shell_command(&["rm", &temp_path.to_string_lossy()])
                 .await?;
             return Err(e);
         };
         // might not be needed
-        self.run_command(&["chmod", "664", &path.to_string_lossy()])
+        self.run_shell_command(&["chmod", "664", &path.to_string_lossy()])
             .await?;
 
         Ok(())
     }
 
-    pub fn adb_pull_file<W: std::io::Write>(
+    pub async fn adb_pull_file<W: std::io::Write>(
         &mut self,
         path: &Path,
         output: &mut W,
-    ) -> Result<(), adb_client::RustADBError> {
-        self.get_selected_device_or_default()?
-            .pull(&path.to_string_lossy(), output)
+    ) -> Result<(), AdbError> {
+        let temp_path = tempfile::NamedTempFile::new().map_err(|e| AdbError::CreateTempFile(e))?;
+
+        self.run_adb_command(&[
+            "pull",
+            &path.to_string_lossy(),
+            &temp_path.path().to_string_lossy(),
+        ])
+        .await?;
+
+        let data = std::fs::read(temp_path.path()).map_err(AdbError::ReadData)?;
+
+        output.write_all(&data).map_err(AdbError::WriteData)?;
+
+        Ok(())
     }
 
     pub async fn pull_file<W: std::io::Write>(
         &mut self,
         path: &Path,
         output: &mut W,
-    ) -> Result<(), adb_client::RustADBError> {
+    ) -> Result<(), AdbError> {
         let temp_path = gen_temp_path(path);
-        self.run_command(&["cp", &path.to_string_lossy(), &temp_path.to_string_lossy()])
+        self.run_shell_command(&["cp", &path.to_string_lossy(), &temp_path.to_string_lossy()])
             .await?;
 
-        let res = self.adb_pull_file(&temp_path, output);
-        self.run_command(&["rm", &temp_path.to_string_lossy()])
+        let res = self.adb_pull_file(&temp_path, output).await;
+        self.run_shell_command(&["rm", &temp_path.to_string_lossy()])
             .await?;
 
         res
     }
 
-    pub async fn close_program(&mut self, pkg: &str) -> Result<(), adb_client::RustADBError> {
-        self.run_command(&["am", "force-stop", pkg]).await?;
+    pub async fn close_program(&mut self, pkg: &str) -> Result<(), AdbError> {
+        self.run_shell_command(&["am", "force-stop", pkg]).await?;
 
         Ok(())
     }
 
-    pub async fn run_program(&mut self, pkg: &str) -> Result<(), adb_client::RustADBError> {
-        self.run_command(&["monkey", "--pct-syskeys", "0", "-p", pkg, "1"])
+    pub async fn run_program(&mut self, pkg: &str) -> Result<(), AdbError> {
+        self.run_shell_command(&["monkey", "--pct-syskeys", "0", "-p", pkg, "1"])
             .await?;
 
         Ok(())
@@ -185,27 +286,29 @@ pub fn gen_temp_path(path: &Path) -> PathBuf {
     )
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AdbGameHandler {
     handler: AdbHandler,
 }
 
 impl AdbGameHandler {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(adb_path: Option<PathBuf>) -> Option<Self> {
+        Some(Self {
+            handler: AdbHandler::new(adb_path.unwrap_or(find_adb_path()?)),
+        })
     }
 
-    pub async fn get_devices() -> Result<Vec<DeviceShort>, adb_client::RustADBError> {
-        AdbHandler::get_devices().await
+    pub async fn get_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
+        self.handler.get_devices().await
     }
 
-    pub fn set_selected_device(&mut self, device: DeviceShort) {
+    pub fn set_selected_device(&mut self, device: AdbDevice) {
         self.handler.set_device(device);
     }
 }
 
 impl ExternalSaveSource for AdbGameHandler {
-    type Error = adb_client::RustADBError;
+    type Error = AdbError;
     async fn read_path(&mut self, path: &Path) -> Result<Vec<u8>, Self::Error> {
         let mut writer = std::io::Cursor::new(Vec::new());
         self.handler.pull_file(path, &mut writer).await?;
@@ -227,7 +330,7 @@ impl ExternalSaveSource for AdbGameHandler {
     async fn get_all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
         let res = self
             .handler
-            .run_command(&[
+            .run_shell_command(&[
                 "find",
                 "/data/data/",
                 "-name",
@@ -242,15 +345,12 @@ impl ExternalSaveSource for AdbGameHandler {
         let mut packages = Vec::new();
 
         for line in res.lines() {
-            let line = line.map_err(adb_client::RustADBError::IOError)?;
             let mut parts = line.split("/");
 
             let package = parts.nth(3);
             if let Some(package) = package {
                 if package.trim_start_matches(": ") == "Permission denied" {
-                    return Err(adb_client::RustADBError::IOError(std::io::Error::other(
-                        "permission denied",
-                    )));
+                    return Err(AdbError::PermissionDenied);
                 }
                 packages.push(package.to_string());
             }

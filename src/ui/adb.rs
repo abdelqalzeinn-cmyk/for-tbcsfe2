@@ -1,12 +1,9 @@
-use std::hash::Hash;
-
-use adb_client::DeviceShort;
 use iced::{Element, Task, alignment::Vertical, widget::container::bordered_box};
 
 use crate::{
     adb::{
-        adb_handler::{AdbGameHandler, find_adb_path, is_adb_installed},
-        waydroid_handler::{WaydroidGameHandler, is_waydroid_installed},
+        adb_handler::{AdbDevice, AdbError, AdbGameHandler, find_adb_path, is_adb_installed},
+        waydroid_handler::{WaydroidError, WaydroidGameHandler, is_waydroid_installed},
     },
     ext_source::ExternalSaveSource,
     localization::{LocaleManager, Localizable},
@@ -17,9 +14,9 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct AdbView {
-    pub available_devices: Vec<DeviceShortEq>,
+    pub available_devices: Vec<AdbDevice>,
     pub waydroid_enabled: bool,
-    pub selected_device: Option<DeviceShortEq>,
+    pub selected_device: Option<AdbDevice>,
     pub available_pkgs: Vec<String>,
     pub selected_pkg: Option<String>,
     pub direction: AdbDirection,
@@ -35,30 +32,6 @@ pub enum AdbDirection {
 
 pub enum AdbCommand {
     Pull,
-}
-
-#[derive(Debug, Clone)]
-pub struct DeviceShortEq {
-    dev: DeviceShort,
-}
-
-impl PartialEq for DeviceShortEq {
-    fn eq(&self, other: &Self) -> bool {
-        if self.dev.identifier != other.dev.identifier {
-            false
-        } else {
-            self.dev.state.to_string() == other.dev.state.to_string()
-        }
-    }
-}
-
-impl Eq for DeviceShortEq {}
-
-impl Hash for DeviceShortEq {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write(self.dev.identifier.as_bytes());
-        state.write(self.dev.state.to_string().as_bytes());
-    }
 }
 
 impl AdbView {
@@ -87,7 +60,7 @@ impl AdbView {
         devcol.push(refresh_btn);
         for dev in &self.available_devices {
             let radio: Element<'_, AdbMessage> = iced::widget::radio(
-                format!("{} - {}", dev.dev.identifier, dev.dev.state),
+                format!("{} - {}", dev.id, dev.state),
                 dev,
                 self.selected_device.as_ref(),
                 |m| AdbMessage::SelectedDevice(m.clone()),
@@ -231,18 +204,22 @@ impl AdbView {
                 self.waydroid_installed = installed;
             }
             AdbMessage::FetchDevices => {
-                return iced::Task::perform(AdbGameHandler::get_devices(), |r| match r {
-                    Ok(d) => AdbMessage::GotDevices(d),
-                    Err(e) => AdbMessage::Error(e.to_string()),
-                });
+                return iced::Task::perform(
+                    async move {
+                        let game_handler = AdbGameHandler::new(None).ok_or(AdbError::CantFindAdb);
+                        match game_handler {
+                            Ok(v) => v.get_devices().await,
+                            Err(e) => Err(e),
+                        }
+                    },
+                    |r| match r {
+                        Ok(d) => AdbMessage::GotDevices(d),
+                        Err(e) => AdbMessage::Error(e.to_string()),
+                    },
+                );
             }
             AdbMessage::GotDevices(devices) => {
-                return iced::Task::done(AdbMessage::AvailableDevices(
-                    devices
-                        .into_iter()
-                        .map(|v| DeviceShortEq { dev: v })
-                        .collect(),
-                ));
+                return iced::Task::done(AdbMessage::AvailableDevices(devices));
             }
             AdbMessage::Error(_) => panic!("error must be handled further up!"),
             AdbMessage::LoadSave(..) => panic!("load save must be handled further up!"),
@@ -253,9 +230,10 @@ impl AdbView {
                 if self.waydroid_enabled {
                     return Task::perform(
                         async move {
-                            let mut manager = WaydroidGameHandler::new();
-                            manager.set_selected_device(device_short.dev);
-                            manager.get_all_game_packages().await
+                            match init_waydroid_manager(device_short) {
+                                Ok(mut v) => v.get_all_game_packages().await,
+                                Err(e) => Err(e),
+                            }
                         },
                         |r| match r {
                             Ok(o) => AdbMessage::AvailablePackages(o),
@@ -265,9 +243,10 @@ impl AdbView {
                 } else {
                     return Task::perform(
                         async move {
-                            let mut manager = AdbGameHandler::new();
-                            manager.set_selected_device(device_short.dev);
-                            manager.get_all_game_packages().await
+                            match init_adb_manager(device_short) {
+                                Ok(mut v) => v.get_all_game_packages().await,
+                                Err(e) => Err(e),
+                            }
                         },
                         |r| match r {
                             Ok(o) => AdbMessage::AvailablePackages(o),
@@ -288,16 +267,18 @@ impl AdbView {
             AdbMessage::PushOrPull(pkg) => {
                 if let Some(ref sel) = self.selected_device {
                     self.selected_pkg = Some(pkg.clone());
-                    if self.waydroid_enabled {
-                        let mut manager = WaydroidGameHandler::new();
-                        manager.set_selected_device(sel.clone().dev);
-
-                        return self.handle_adb_read_or_write(pkg, manager);
+                    return if self.waydroid_enabled {
+                        let manager = init_waydroid_manager(sel.clone());
+                        match manager {
+                            Ok(v) => self.handle_adb_read_or_write(pkg, v),
+                            Err(e) => Task::done(AdbMessage::Error(e.to_string())),
+                        }
                     } else {
-                        let mut manager = AdbGameHandler::new();
-                        manager.set_selected_device(sel.clone().dev);
-
-                        return self.handle_adb_read_or_write(pkg, manager);
+                        let manager = init_adb_manager(sel.clone());
+                        match manager {
+                            Ok(v) => self.handle_adb_read_or_write(pkg, v),
+                            Err(e) => Task::done(AdbMessage::Error(e.to_string())),
+                        }
                     };
                 }
             }
@@ -308,7 +289,7 @@ impl AdbView {
                 return Task::perform(
                     Self::pull_account_info(
                         inquiry_code,
-                        selected_device.map(|v| v.dev),
+                        selected_device,
                         selected_pkg,
                         is_waydroid,
                     ),
@@ -325,7 +306,7 @@ impl AdbView {
                 return Task::perform(
                     Self::push_account_info(
                         inquiry_code,
-                        selected_device.map(|v| v.dev),
+                        selected_device,
                         selected_pkg,
                         is_waydroid,
                         info,
@@ -346,16 +327,16 @@ impl AdbView {
             AdbMessage::Rerun(pkg) => {
                 if let Some(ref sel) = self.selected_device {
                     self.selected_pkg = Some(pkg.clone());
-                    if self.waydroid_enabled {
-                        let mut manager = WaydroidGameHandler::new();
-                        manager.set_selected_device(sel.clone().dev);
-
-                        return adb_rerun_game(manager, pkg);
+                    return if self.waydroid_enabled {
+                        match init_waydroid_manager(sel.clone()) {
+                            Ok(v) => adb_rerun_game(v, pkg),
+                            Err(e) => Task::done(AdbMessage::Error(e.to_string())),
+                        }
                     } else {
-                        let mut manager = AdbGameHandler::new();
-                        manager.set_selected_device(sel.clone().dev);
-
-                        return adb_rerun_game(manager, pkg);
+                        match init_adb_manager(sel.clone()) {
+                            Ok(v) => adb_rerun_game(v, pkg),
+                            Err(e) => Task::done(AdbMessage::Error(e.to_string())),
+                        }
                     };
                 };
             }
@@ -394,36 +375,34 @@ impl AdbView {
 
     pub async fn pull_account_info(
         inquiry_code: String,
-        selected_device: Option<DeviceShort>,
+        selected_device: Option<AdbDevice>,
         selected_pkg: Option<String>,
         is_waydroid: bool,
     ) -> Result<GameAccountInfo, String> {
         let selected_device = selected_device.ok_or("no device selected")?;
         let selected_pkg = selected_pkg.ok_or("no package selected")?;
         let account_data = match is_waydroid {
-            true => {
-                let mut manager = WaydroidGameHandler::new();
-                manager.set_selected_device(selected_device);
-                manager
+            true => match init_waydroid_manager(selected_device) {
+                Ok(mut v) => v
                     .read_account_info(&selected_pkg, &inquiry_code)
                     .await
-                    .map_err(|e| e.to_string())?
-            }
-            false => {
-                let mut manager = AdbGameHandler::new();
-                manager.set_selected_device(selected_device);
-                manager
+                    .map_err(|e| e.to_string())?,
+                Err(e) => Err(e.to_string())?,
+            },
+            false => match init_adb_manager(selected_device) {
+                Ok(mut v) => v
                     .read_account_info(&selected_pkg, &inquiry_code)
                     .await
-                    .map_err(|e| e.to_string())?
-            }
+                    .map_err(|e| e.to_string())?,
+                Err(e) => Err(e.to_string())?,
+            },
         };
 
         GameAccountInfo::from_data(&account_data).map_err(|e| e.to_string())
     }
     pub async fn push_account_info(
         inquiry_code: String,
-        selected_device: Option<DeviceShort>,
+        selected_device: Option<AdbDevice>,
         selected_pkg: Option<String>,
         is_waydroid: bool,
         info: GameAccountInfo,
@@ -432,22 +411,20 @@ impl AdbView {
         let selected_pkg = selected_pkg.ok_or("no package selected")?;
         let data = info.to_data().map_err(|e| e.to_string())?;
         match is_waydroid {
-            true => {
-                let mut manager = WaydroidGameHandler::new();
-                manager.set_selected_device(selected_device);
-                manager
+            true => match init_waydroid_manager(selected_device) {
+                Ok(mut v) => v
                     .write_account_info(&selected_pkg, &inquiry_code, data)
                     .await
-                    .map_err(|e| e.to_string())?
-            }
-            false => {
-                let mut manager = AdbGameHandler::new();
-                manager.set_selected_device(selected_device);
-                manager
+                    .map_err(|e| e.to_string())?,
+                Err(e) => Err(e.to_string())?,
+            },
+            false => match init_adb_manager(selected_device) {
+                Ok(mut v) => v
                     .write_account_info(&selected_pkg, &inquiry_code, data)
                     .await
-                    .map_err(|e| e.to_string())?
-            }
+                    .map_err(|e| e.to_string())?,
+                Err(e) => Err(e.to_string())?,
+            },
         };
 
         Ok(())
@@ -458,6 +435,19 @@ impl AdbView {
             .chain(Task::done(AdbMessage::CheckWaydroid))
             .chain(Task::done(AdbMessage::FetchDevices));
     }
+}
+
+fn init_adb_manager(device_short: AdbDevice) -> Result<AdbGameHandler, AdbError> {
+    let mut manager = AdbGameHandler::new(None).ok_or(AdbError::CantFindAdb)?;
+    manager.set_selected_device(device_short);
+    Ok(manager)
+}
+
+fn init_waydroid_manager(device_short: AdbDevice) -> Result<WaydroidGameHandler, WaydroidError> {
+    let mut manager =
+        WaydroidGameHandler::new(None).ok_or(WaydroidError::Adb(AdbError::CantFindAdb))?;
+    manager.set_selected_device(device_short);
+    Ok(manager)
 }
 
 fn adb_read_save<M: ExternalSaveSource>(mut manager: M, pkg: String) -> Task<AdbMessage> {
@@ -492,10 +482,10 @@ fn adb_rerun_game<M: ExternalSaveSource>(mut manager: M, pkg: String) -> Task<Ad
 
 #[derive(Debug, Clone)]
 pub enum AdbMessage {
-    AvailableDevices(Vec<DeviceShortEq>),
+    AvailableDevices(Vec<AdbDevice>),
     FetchDevices,
     Error(String),
-    SelectedDevice(DeviceShortEq),
+    SelectedDevice(AdbDevice),
     AvailablePackages(Vec<String>),
     PushOrPull(String),
     LoadSave(Vec<u8>, String),
@@ -508,7 +498,7 @@ pub enum AdbMessage {
     ReranGame(String),
     SelectPkg(String),
     ToggleWaydroid(bool),
-    GotDevices(Vec<DeviceShort>),
+    GotDevices(Vec<AdbDevice>),
     WaydroidInstalled(bool),
     CheckWaydroid,
     CheckAdb,
