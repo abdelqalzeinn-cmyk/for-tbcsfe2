@@ -15,12 +15,14 @@ use crate::{
 use bcsfe_derive::{Readable, Writable};
 
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DateTimeDst {
     pub dst: Option<bool>,
     pub datetime: DateTime,
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DateTime {
     pub year: i32,
     pub month: i32,
@@ -78,6 +80,7 @@ impl Writable for DateTimeDst {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Date {
     pub year: i32,
     pub month: i32,
@@ -85,6 +88,7 @@ pub struct Date {
 }
 
 #[derive(Debug, Copy, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MainDate {
     pub datetime: DateTimeDst,
     pub timestamp: f64,
@@ -170,6 +174,7 @@ impl Readable for MainDate {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ub1(pub Option<bool>);
 
 impl Readable for Ub1 {
@@ -202,6 +207,7 @@ impl Writable for Ub1 {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnlockPopups8 {
     pub popups: Vec<i32>,
 }
@@ -342,6 +348,7 @@ impl Readable for SaveFile {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Save {
     // pub game_version: GameVersion,
     #[rw(gvcc)]
@@ -876,6 +883,7 @@ impl Save {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemainingData {
     pub data: Vec<u8>,
 }
@@ -915,6 +923,7 @@ impl Writable for RemainingData {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChaptersGeneric<SEL, PROG, STAG, UNLCK> {
     pub selected_stages: Vec<Vec<SEL>>,
     pub clear_progress: Vec<Vec<PROG>>,
@@ -948,6 +957,7 @@ impl<SEL, PROG, STAG: TotalStages + Default, UNLCK> ChaptersGeneric<SEL, PROG, S
 }
 
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LengthType {
     I8,
     I16,
@@ -980,6 +990,7 @@ impl LengthType {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GenericChapterArgs {
     pub read_length_every_time: bool,
     pub total_chapters_type: LengthType,
@@ -1190,6 +1201,7 @@ impl<
 pub type StageClear<T> = Vec<Vec<T>>;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UserRankRewards {
     pub rewards: Vec<bool>,
 }
@@ -1229,6 +1241,7 @@ impl Writable for UserRankRewards {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ubl1(pub Option<Vec<bool>>);
 
 impl Readable for Ubl1 {
@@ -1275,6 +1288,7 @@ impl Writable for Ubl1 {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GatyaData {
     pub stepup_stage_3_cooldown: i32,
     pub previous_normal_roll: i32,
@@ -1289,6 +1303,7 @@ pub struct GatyaData {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventStageLegendRestriction {
     pub legend_restriction: Vec<Vec<i32>>,
 }
@@ -1347,6 +1362,7 @@ impl Writable for EventStageLegendRestriction {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UnlockedSlots {
     Individual([bool; 10]),
     One(i8),
@@ -1408,6 +1424,7 @@ impl Writable for UnlockedSlots {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SomeTimeInfo {
     pub timestamp: f64,
     pub server_time_stamp: f64,
@@ -1418,6 +1435,7 @@ pub struct SomeTimeInfo {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnitDrops {
     pub unit_drops: Option<Vec<i32>>,
 }
@@ -1459,11 +1477,13 @@ impl Writable for UnitDrops {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventChapter<T> {
     pub data: Vec<Vec<T>>,
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventChaptersT<T, T2> {
     pub selected_stages: Vec<Vec<Vec<T>>>,
     pub clear_progress: Vec<Vec<Vec<T>>>,
@@ -1812,6 +1832,7 @@ impl Writable for EventChaptersT<i32, i32> {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EventChapters {
     Int(EventChaptersT<i32, i32>),
     Byte(EventChaptersT<i8, i16>),
@@ -1961,6 +1982,7 @@ impl Writable for EventChapters {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CatStorage {
     pub item_ids: Vec<i32>,
     pub item_types: Vec<i32>,
@@ -2015,6 +2037,7 @@ impl Writable for CatStorage {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventItemData {
     pub values: HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>,
     pub flags: HashMapLength<VariableLengthInt, VariableLengthInt, bool>,
@@ -2036,6 +2059,7 @@ impl EventItemData {
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StoryTreasureFestival {
     pub time_until_chance: [i32; TOTAL_STORY_CHAPTERS],
     pub duration: [i32; TOTAL_STORY_CHAPTERS],
@@ -2045,12 +2069,14 @@ pub struct StoryTreasureFestival {
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LockedBattleItems {
     pub lock_item: bool,
     pub locked_items: [bool; TOTAL_BATTLE_ITEMS],
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnknownEarlyBoolList {
     pub data: Vec<bool>,
 }
@@ -2090,6 +2116,7 @@ impl Writable for UnknownEarlyBoolList {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewDialogs {
     pub new_dialogs: Vec<i32>,
 }
@@ -2130,6 +2157,7 @@ impl Writable for NewDialogs {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MenuUnlocks1 {
     pub unlocks: Vec<i32>,
     pub unlock_popups: Vec<i32>,
@@ -2173,6 +2201,7 @@ impl Writable for MenuUnlocks1 {
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Form {
     #[default]
     First,
@@ -2182,10 +2211,15 @@ pub enum Form {
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi32(pub Form);
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi16(pub Form);
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi8(pub Form);
 
 impl From<Form> for i32 {
@@ -2309,12 +2343,14 @@ impl Writable for Formi32 {
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Upgrade {
     pub plus: i16,
     pub base: i16,
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CatsField<T>(pub T);
 
 pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
@@ -2374,6 +2410,7 @@ impl<T: for<'a> Writable<Args<'a> = VecArgs<()>>> Writable for CatsField<T> {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EnemyGuide {
     pub enemy_guide: Vec<i32>,
 }
@@ -2414,11 +2451,13 @@ impl Writable for EnemyGuide {
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LineUp {
     pub slots: [i32; 10],
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LineUps {
     pub lineups: Vec<LineUp>,
 }
@@ -2460,6 +2499,7 @@ impl Writable for LineUps {
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StampData {
     pub current_stamp: i32,
     pub collected_stamps: [i32; 30],

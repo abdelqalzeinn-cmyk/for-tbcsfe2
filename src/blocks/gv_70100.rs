@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV70100Block {
     pub catamin_stages: UncannyChapters,
     pub lucky_tickets: LengthVec<i32, i32>,

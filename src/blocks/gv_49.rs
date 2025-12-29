@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV49Block {
     #[rw(en = false, kr = false, tw = false)]
     pub energy_notification: Option<bool>,
@@ -21,6 +22,7 @@ pub struct GV49Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GatyaSeenLuckyDrops {
     pub drops: Vec<i32>,
 }

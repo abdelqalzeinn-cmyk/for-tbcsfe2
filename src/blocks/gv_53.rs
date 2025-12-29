@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, LengthVec};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV53Block {
     pub time_since_last_check_cumulative: f64,
     pub server_timestamp: f64,
@@ -72,6 +73,7 @@ impl GV53Block {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamatoto {
     pub remaining_seconds: f64,
     pub return_flag: bool,

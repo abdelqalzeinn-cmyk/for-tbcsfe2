@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV140000Block {
     pub u1: i32,
     pub u2: f64,

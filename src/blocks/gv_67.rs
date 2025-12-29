@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV67Block {
     #[rw(gvcc)]
     pub ranking: DojoRanking,
@@ -18,6 +19,7 @@ pub struct GV67Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DojoRanking {
     pub score: i32,
     pub ranking: i32,
@@ -35,6 +37,7 @@ pub struct DojoRanking {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChallengeChapters {
     pub chapters: ChaptersGeneric<i32, i32, StageClear<i32>, i32>,
 }

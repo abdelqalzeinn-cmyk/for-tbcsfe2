@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, HashMapLength, LengthString};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV100000Block {
     pub legend_tickets: i32,
     pub u1: HashMapLength<i8, i8, i32>, // FIXME: may not be a hashmap

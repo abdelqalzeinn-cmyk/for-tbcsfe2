@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SlotNames {
     pub names: Vec<LengthString<i32>>,
 }
@@ -44,6 +45,7 @@ impl Writable for SlotNames {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV91000Block {
     #[rw(gvcc)]
     pub slot_names: SlotNames,

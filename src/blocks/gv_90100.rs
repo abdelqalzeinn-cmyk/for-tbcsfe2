@@ -12,6 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum UnknownDict90100 {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     Old(HashMapLength<i16, i16, f64>),
     New(HashMapLength<i16, i16, i32>),
 }
@@ -86,6 +87,7 @@ impl Writable for UnknownDict90100 {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90100Block {
     pub unknown_1: i16,
     pub unknown_2: i16,

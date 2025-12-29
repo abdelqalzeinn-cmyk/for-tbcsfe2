@@ -6,6 +6,7 @@ use crate::stream::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV100900Block {
     pub aku: AkuChapters,
     pub u1: bool,
@@ -18,6 +19,7 @@ pub struct GV100900Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AkuChapters {
     pub current_stages: Vec<Vec<i8>>,
     pub stages: Vec<Vec<Vec<i16>>>,

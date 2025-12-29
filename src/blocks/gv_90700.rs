@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90700Block {
     #[rw(gvcc)]
     pub talent_orbs: TalentOrbs,
@@ -69,6 +70,7 @@ impl Writable for TalentOrbs {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TalentOrbs {
     Old(HashMapLength<i16, i16, i8>),
     New(HashMapLength<i16, i16, i16>),

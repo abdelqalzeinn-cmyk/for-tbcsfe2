@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV44Block {
     #[rw(gvcc)]
     pub item_reward_chapters: ItemRewardChapters<bool>,
@@ -24,6 +25,7 @@ pub struct GV44Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ItemRewardChapters<T> {
     pub chapters: Vec<Vec<Vec<T>>>,
 }

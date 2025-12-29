@@ -2,17 +2,20 @@ use std::str::FromStr;
 
 use bcsfe_derive::{Readable, Writable};
 
+use crate::blocks::gv_45::StaticChapter;
+
 pub const TOTAL_STORY_CHAPTERS: usize = 10;
 pub const TOTAL_CLEAR_TIME_STAGES: usize = 51;
 pub const TOTAL_STORY_STAGES: usize = 49;
 pub const TOTAL_INGAME_STAGES: usize = 48;
 
 #[derive(Debug, Copy, Clone, Readable, Writable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StoryChapters {
     pub selected_stages: [i32; TOTAL_STORY_CHAPTERS],
     pub chapter_progress: [i32; TOTAL_STORY_CHAPTERS],
-    pub clear_times: [[i32; TOTAL_CLEAR_TIME_STAGES]; TOTAL_STORY_CHAPTERS],
-    pub treasures: [[i32; TOTAL_STORY_STAGES]; TOTAL_STORY_CHAPTERS],
+    pub clear_times: [StaticChapter<TOTAL_CLEAR_TIME_STAGES>; TOTAL_STORY_CHAPTERS],
+    pub treasures: [StaticChapter<TOTAL_STORY_STAGES>; TOTAL_STORY_CHAPTERS],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord, Default)]
@@ -538,6 +541,7 @@ impl StoryChapters {
             .expect("chapter index was correctly calculated");
 
         *stages
+            .data
             .get(stage.stage_id.into_usize())
             .expect("stage id was correctly bounded")
     }
@@ -554,6 +558,7 @@ impl StoryChapters {
             .expect("chapter index was correctly calculated");
 
         let current = stages
+            .data
             .get_mut(stage.stage_id.into_usize())
             .expect("stage id was correctly bounded");
 
@@ -566,6 +571,7 @@ impl StoryChapters {
             .expect("chapter index was correctly calculated"); // should never occur
 
         let current = stages
+            .data
             .get_mut(stage.stage_id.into_usize())
             .expect("stage id was correctly bounded"); // should never happen
 
@@ -578,8 +584,12 @@ impl Default for StoryChapters {
         Self {
             selected_stages: [0; TOTAL_STORY_CHAPTERS],
             chapter_progress: [0; TOTAL_STORY_CHAPTERS],
-            clear_times: [[0; TOTAL_CLEAR_TIME_STAGES]; TOTAL_STORY_CHAPTERS],
-            treasures: [[0; TOTAL_STORY_STAGES]; TOTAL_STORY_CHAPTERS],
+            clear_times: [StaticChapter {
+                data: [0; TOTAL_CLEAR_TIME_STAGES],
+            }; TOTAL_STORY_CHAPTERS],
+            treasures: [StaticChapter {
+                data: [0; TOTAL_STORY_STAGES],
+            }; TOTAL_STORY_CHAPTERS],
         }
     }
 }

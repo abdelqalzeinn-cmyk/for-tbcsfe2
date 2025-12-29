@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{HashMapLength, LengthVec};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV59Block {
     pub last_checked_zombie_time: f64,
     pub outbreaks: HashMapLength<i32, i32, HashMapLength<i32, i32, bool>>,

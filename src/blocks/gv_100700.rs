@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV100700Block {
     pub u1: HashMapLength<i16, i16, bool>,
     pub u2: HashMapLength<i16, i16, HashMapLength<i16, i16, i16>>,

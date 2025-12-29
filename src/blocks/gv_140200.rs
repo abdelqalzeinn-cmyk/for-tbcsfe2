@@ -7,6 +7,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV140200Block {
     #[rw(gvcc)]
     pub dojo_ranking_2: DojoRanking2,
@@ -16,11 +17,13 @@ pub struct GV140200Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DojoRanking2 {
     pub ranking: Vec<DojoRank2>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DojoRank2 {
     #[rw(gvcc)]
     pub ranking: DojoRanking,

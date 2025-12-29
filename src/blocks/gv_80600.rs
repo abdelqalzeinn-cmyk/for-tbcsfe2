@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV80600Block {
     pub unknown_vec: LengthVec<i16, i32>,
     pub legend_quest_chapters: LegendQuest,
@@ -24,12 +25,14 @@ impl TotalStages for LegendQuestStage {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LegendQuestStage {
     pub clear_times: Vec<Vec<i16>>,
     pub attemps: Vec<Vec<i16>>,
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LegendQuestStageArgs {
     pub total_stages: usize,
     pub total_stars: usize,
@@ -66,6 +69,7 @@ impl Writable for LegendQuestStage {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LegendQuestChapters {
     pub chapters: ChaptersGeneric<i8, i8, LegendQuestStage, i8>,
 }
@@ -110,6 +114,7 @@ impl Writable for LegendQuestChapters {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LegendQuest {
     pub chapters: LegendQuestChapters,
     pub unknown: Vec<i8>,

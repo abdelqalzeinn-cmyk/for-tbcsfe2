@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV66Block {
     pub tower: TowerChapters,
     #[rw(gvcc)]
@@ -20,6 +21,7 @@ pub struct GV66Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TowerItemObtainStates {
     pub item_obtain_states: Vec<Vec<bool>>,
 }
@@ -69,6 +71,7 @@ impl Writable for TowerItemObtainStates {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Missions {
     pub clear_states: HashMapLength<i32, i32, i32>,
     pub requirements: HashMapLength<i32, i32, i32>,
@@ -82,6 +85,7 @@ pub struct Missions {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PreparingValues {
     Old(HashMapLength<i32, i32, bool>),
     New(HashMapLength<i32, i32, i32>),
@@ -159,6 +163,7 @@ impl Writable for PreparingValues {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TowerChapters {
     pub chapters: ChaptersGeneric<i32, i32, StageClear<i32>, i32>,
 }

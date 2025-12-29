@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, LengthVec};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90900Block {
     pub cat_shrine: CatShrine,
     pub u1: f64,
@@ -11,6 +12,7 @@ pub struct GV90900Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CatShrine {
     pub unknown: bool,
     pub stamp_1: f64,

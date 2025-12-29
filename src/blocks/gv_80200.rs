@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::{save::Formi16, stream::Assertable};
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV80200Block {
     pub unknown: bool,
     pub leadership: i16,

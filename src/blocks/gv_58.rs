@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, HashMapLength};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV58Block {
     pub dojo_chapters: HashMapLength<i32, i32, HashMapLength<i32, i32, i32>>,
     pub dojo_item_lock_flag: bool,

@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, HashMapLength};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV61Block {
     pub new_chara_flags: HashMapLength<i32, i32, i32>,
     pub shown_maxcollab_msg: bool,

@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90500Block {
     pub collab_gauntlets: GauntletChapters,
     pub u1: bool,
@@ -22,12 +23,14 @@ pub struct GV90500Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Unknown90500_130700 {
     pub u1: HashMapLength<i16, i32, i8>,
     pub u2: HashMapLength<i16, i32, f64>,
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Unknown90500_100300 {
     pub u1: i8,
     pub u2: bool,

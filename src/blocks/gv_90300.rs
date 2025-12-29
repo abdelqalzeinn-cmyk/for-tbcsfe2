@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90300Block {
     pub unknown: LengthVec<i16, Unknown90300>,
     pub unknown_2: HashMapLength<i16, i32, f64>,
@@ -14,6 +15,7 @@ pub struct GV90300Block {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GauntletChapters {
     pub chapters: ChaptersGeneric<i8, i8, StageClear<i16>, i8>,
     pub unknown: Vec<i8>,
@@ -70,6 +72,7 @@ impl Writable for GauntletChapters {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Unknown90300 {
     pub u1: i32,
     pub u2: i32,

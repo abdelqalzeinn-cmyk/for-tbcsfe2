@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90000Block {
     pub medals: Medals,
     pub unkown: HashMapLength<i16, i16, bool>,
@@ -16,6 +17,7 @@ pub struct GV90000Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Medals {
     pub u1: i32,
     pub u2: i32,

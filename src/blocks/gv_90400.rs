@@ -10,6 +10,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV90400Block {
     pub gauntlets_2: GauntletChapters,
     #[rw(gvcc)]
@@ -19,6 +20,7 @@ pub struct GV90400Block {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EnigmaStage {
     pub level: i32,
     pub stage_id: i32,
@@ -27,6 +29,7 @@ pub struct EnigmaStage {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExtraEnigmaDataInner {
     pub u1: i32,
     pub u2: i32,
@@ -35,6 +38,7 @@ pub struct ExtraEnigmaDataInner {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExtraEnigmaData(pub Option<ExtraEnigmaDataInner>);
 
 impl Readable for ExtraEnigmaData {
@@ -82,6 +86,7 @@ impl Writable for ExtraEnigmaData {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Engima {
     pub energy_since_1: i32,
     pub energy_since_2: i32,
@@ -94,12 +99,14 @@ pub struct Engima {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CatSlot {
     pub cat_id: i16,
     pub form: Formi8,
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LineupCat {
     pub index: i16,
     pub cats: [CatSlot; 10],
@@ -109,12 +116,14 @@ pub struct LineupCat {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StageLineup {
     pub index: i16,
     pub stages: LengthVec<i16, i32>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ClearedSlots {
     pub cats: LengthVec<i16, LineupCat>,
     pub stages: LengthVec<i16, StageLineup>,

@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventCapsules {
     pub event_capsules: Vec<i32>,
     pub event_capsules_counter: Vec<i32>,
@@ -51,6 +52,7 @@ impl Writable for EventCapsules {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum GatyaSeed {
     Old(u64),
     New(u32),
@@ -98,6 +100,7 @@ impl Writable for GatyaSeed {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV47Block {
     #[rw(gvcc)]
     pub event_seed: GatyaSeed,

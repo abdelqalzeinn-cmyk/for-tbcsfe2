@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV64Block {
     pub base_materials: LengthVec<i32, i32>,
     #[rw(gvcc)]
@@ -17,6 +18,7 @@ pub struct GV64Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ototo {
     pub remaining_seconds: f64,
     pub return_flag: bool,
@@ -29,6 +31,7 @@ pub struct Ototo {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum OtotoSelectedParts {
     Old([i32; 3]),
     New(Vec<[i8; 3]>),

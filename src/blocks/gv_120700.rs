@@ -7,6 +7,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV120700BlockInner {
     pub u1: HashMapLength<i8, LengthString<i32>, LengthString<i32>>, // FIXME: may not be a hashmap
     #[rw(jp = false)]
@@ -16,6 +17,7 @@ pub struct GV120700BlockInner {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV120700Block {
     pub inner: Option<GV120700BlockInner>,
 }

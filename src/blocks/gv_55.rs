@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV55Block {
     pub gamatoto_skin: i32,
     pub platinum_tickets: i32,
@@ -25,6 +26,7 @@ pub struct GV55Block {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LoginBonus {
     Old(LengthVec<i32, i32>),
     New(HashMapLength<i32, i32, i32>),

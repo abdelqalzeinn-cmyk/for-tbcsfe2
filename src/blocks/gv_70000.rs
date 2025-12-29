@@ -6,12 +6,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV70000Block {
     pub uncanny_chapters: UncannyChapters,
     pub _76: Assertable<76>,
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UncannyChapters {
     pub chapters: ChaptersGeneric<i32, i32, StageClear<i32>, i32>,
     pub unknown: Vec<i32>,

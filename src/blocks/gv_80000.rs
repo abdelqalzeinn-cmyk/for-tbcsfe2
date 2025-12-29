@@ -3,6 +3,7 @@ use bcsfe_derive::{Readable, Writable};
 use crate::stream::{Assertable, HashMapLength, LengthVec};
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV80000Block {
     #[rw(gvcc)]
     pub gold_pass: GoldPass,
@@ -13,6 +14,7 @@ pub struct GV80000Block {
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GoldPass {
     pub officer_id: i32,
     pub total_renewal_times: i32,
@@ -33,6 +35,7 @@ pub struct GoldPass {
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Talent {
     pub id: i32,
     pub level: i32,

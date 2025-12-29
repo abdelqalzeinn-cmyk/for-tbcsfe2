@@ -5,6 +5,7 @@ use crate::stream::{Assertable, HashMapLength};
 type InnerValue = (i16, i32, HashMapLength<i16, i16, i16>);
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV130700Block {
     #[rw(en = false, kr = false, tw = false)]
     pub u1: Option<i16>,

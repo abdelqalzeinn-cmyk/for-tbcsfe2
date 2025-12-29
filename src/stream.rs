@@ -490,6 +490,7 @@ impl_from_usize!(i32);
 impl_from_usize!(i64);
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LengthVec<L, T>(pub Vec<T>, PhantomData<L>);
 
 impl<
@@ -525,6 +526,7 @@ impl<
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LengthString<L>(pub String, PhantomData<L>);
 
 impl<L> From<String> for LengthString<L> {
@@ -611,6 +613,7 @@ impl_write_tuple!(T1 => 0, T2 => 1, T3 => 2, T4 => 3, T5 => 4);
 impl_write_tuple!(T1 => 0, T2 => 1, T3 => 2, T4 => 3, T5 => 4, T6 => 5);
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct VariableLengthInt(pub u32);
 
 impl From<u32> for VariableLengthInt {
@@ -690,15 +693,16 @@ impl Writable for VariableLengthInt {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct HashMapLength<L, K, V>(pub HashMap<K, V>, PhantomData<L>);
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct HashMapLength<L, K: Eq + Hash, V>(pub HashMap<K, V>, PhantomData<L>);
 
-impl<L, K, V> HashMapLength<L, K, V> {
+impl<L, K: Eq + Hash, V> HashMapLength<L, K, V> {
     pub fn new(map: HashMap<K, V>) -> Self {
         Self(map, PhantomData)
     }
 }
 
-impl<L, K, V> From<HashMap<K, V>> for HashMapLength<L, K, V> {
+impl<L, K: Eq + Hash, V> From<HashMap<K, V>> for HashMapLength<L, K, V> {
     fn from(value: HashMap<K, V>) -> Self {
         Self::new(value)
     }
@@ -722,7 +726,7 @@ impl<
 
 impl<
     L: for<'a> Writable<Args<'a> = ()> + FromUsize,
-    K: for<'a> Writable<Args<'a> = ()> + std::fmt::Display + Default,
+    K: Eq + Hash + for<'a> Writable<Args<'a> = ()> + std::fmt::Display + Default,
     V: for<'a> Writable<Args<'a> = ()> + std::fmt::Debug + Default,
 > Writable for HashMapLength<L, K, V>
 {
@@ -801,6 +805,7 @@ impl<
 }
 
 #[derive(Debug, Copy, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Assertable<const EX: i32>;
 
 impl<const EX: i32> Readable for Assertable<EX> {
