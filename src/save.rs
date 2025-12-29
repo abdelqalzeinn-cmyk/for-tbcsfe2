@@ -369,7 +369,6 @@ impl Readable for SaveFile {
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Save {
-    // pub game_version: GameVersion,
     #[rw(gvcc)]
     pub ub1: Ub1,
     pub mute_bgm: bool,
@@ -658,7 +657,7 @@ pub struct Save {
     #[rw(min_gv = 140500)]
     pub gv_140500: Option<gv_140500::GV140500Block>,
     #[rw(min_gv = 140700)]
-    pub gv_140500: Option<gv_140700::GV140700Block>,
+    pub gv_140700: Option<gv_140700::GV140700Block>,
     pub remaing_data: RemainingData,
 }
 

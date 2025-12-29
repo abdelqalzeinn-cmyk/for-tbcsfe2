@@ -315,18 +315,6 @@ impl StoryStage {
         Self { chapter, stage_id }
     }
 
-    #[cfg(feature = "localization")]
-    pub fn localize_stage(&self, manager: &crate::localization::LocaleManager) -> String {
-        use crate::localization::Localizable;
-
-        format!(
-            "chapter-{}-stage-{}",
-            self.chapter.into_outer(),
-            self.stage_id.into_usize() + 1
-        )
-        .localize(manager)
-    }
-
     pub fn previous(&self) -> Option<StoryStage> {
         self.stage_id.previous().map(|v| Self {
             chapter: self.chapter,

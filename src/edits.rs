@@ -57,48 +57,6 @@ pub enum Edit {
     Leadership(basic_items::LeadershipEdit),
 }
 
-#[cfg(feature = "localization")]
-impl crate::localization::Localizable for Edit {
-    fn localize_with_args(
-        &self,
-        manager: &crate::localization::LocaleManager,
-        _args: &fluent::FluentArgs,
-    ) -> String {
-        self.localize_edit(manager)
-    }
-}
-macro_rules! name_localize {
-    [$($var:ident => $name:literal),+] => {
-        pub fn get_name(&self) -> String {
-            match self {
-                $(Self::$var(_) => $name,)+
-            }.to_string()
-        }
-
-        #[cfg(feature = "localization")]
-        pub fn localize_edit(&self, manager: &crate::localization::LocaleManager) -> String {
-            match self {
-                $(Self::$var(v) => crate::localization::Localizable::localize(v, manager),)+
-            }
-        }
-    };
-}
-
-impl Edit {
-    name_localize![
-        Catfood => "catfood",
-        XP => "xp",
-        MainStory => "main-story",
-        InquiryCode => "inquiry-code",
-        NormalTickets => "normal-tickets",
-        RareTickets => "rare-tickets",
-        PlatinumTickets => "platinum-tickets",
-        LegendTickets => "legend-tickets",
-        NP => "np",
-        Leadership => "leadership"
-    ];
-}
-
 pub trait EditReadable {
     fn read(save_file: &SaveFile) -> Self;
 }
