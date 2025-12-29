@@ -655,6 +655,10 @@ pub struct Save {
     pub gv_140200: Option<gv_140200::GV140200Block>,
     #[rw(min_gv = 140300)]
     pub gv_140300: Option<gv_140300::GV140300Block>,
+    #[rw(min_gv = 140500)]
+    pub gv_140500: Option<gv_140500::GV140500Block>,
+    #[rw(min_gv = 140700)]
+    pub gv_140500: Option<gv_140700::GV140700Block>,
     pub remaing_data: RemainingData,
 }
 
