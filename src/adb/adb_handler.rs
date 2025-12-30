@@ -107,7 +107,7 @@ impl AdbHandler {
     pub async fn run_adb_command(&self, cmd: &[&str]) -> Result<String, AdbError> {
         let adb_path = self.adb_path.clone();
         let cmd: Vec<String> = cmd.iter().map(|v| v.to_string()).collect();
-        let selected_device = self.get_selected_device().cloned();
+        let selected_device = self.selected_device().cloned();
         std::thread::spawn(move || {
             let mut command = std::process::Command::new(adb_path);
             if let Some(dev) = selected_device {
@@ -136,7 +136,7 @@ impl AdbHandler {
         .map_err(|_| AdbError::JoinThread)?
     }
 
-    pub async fn get_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
+    pub async fn adb_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
         let output = self.run_adb_command(&["devices"]).await?;
 
         let mut devices = Vec::new();
@@ -160,14 +160,18 @@ impl AdbHandler {
 
         self
     }
-    pub fn set_device(&mut self, device: AdbDevice) {
+    pub fn selected_device_mut(&mut self) -> Option<&mut AdbDevice> {
+        self.selected_device.as_mut()
+    }
+
+    pub fn set_selected_device(&mut self, device: AdbDevice) {
         self.selected_device = Some(device);
     }
 
-    pub fn get_selected_device(&self) -> Option<&AdbDevice> {
+    pub fn selected_device(&self) -> Option<&AdbDevice> {
         self.selected_device.as_ref()
     }
-    pub fn get_selected_device_err(&self) -> Result<&AdbDevice, AdbError> {
+    pub fn selected_device_or_err(&self) -> Result<&AdbDevice, AdbError> {
         self.selected_device
             .as_ref()
             .ok_or(AdbError::NoDeviceSelected)
@@ -298,12 +302,15 @@ impl AdbGameHandler {
         })
     }
 
-    pub async fn get_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
-        self.handler.get_devices().await
+    pub async fn adb_devices(&self) -> Result<Vec<AdbDevice>, AdbError> {
+        self.handler.adb_devices().await
     }
 
+    pub fn selected_device_mut(&mut self) -> Option<&mut AdbDevice> {
+        self.handler.selected_device_mut()
+    }
     pub fn set_selected_device(&mut self, device: AdbDevice) {
-        self.handler.set_device(device);
+        self.handler.set_selected_device(device);
     }
 }
 
@@ -327,7 +334,7 @@ impl ExternalSaveSource for AdbGameHandler {
     async fn run_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
         self.handler.run_program(pkg).await
     }
-    async fn get_all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
+    async fn all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
         let res = self
             .handler
             .run_shell_command(&[

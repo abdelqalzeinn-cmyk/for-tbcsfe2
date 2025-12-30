@@ -1404,10 +1404,10 @@ impl Writable for EventChaptersT<i8, i16> {
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        let total_map_types = self.get_total_map_types();
-        let total_subchapters = self.get_total_subchapters();
-        let stars_per_subchapter = self.get_stars_per_subchapter();
-        let stages_per_subchapter = self.get_stages_per_subchapter();
+        let total_map_types = self.total_map_types();
+        let total_subchapters = self.total_subchapters();
+        let stars_per_subchapter = self.stars_per_subchapter();
+        let stages_per_subchapter = self.stages_per_subchapter();
 
         (total_map_types as i8).write_no_opts(writer)?;
         (total_subchapters as i16).write_no_opts(writer)?;
@@ -1446,13 +1446,13 @@ impl Writable for EventChaptersT<i8, i16> {
 }
 
 impl<T1, T2> EventChaptersT<T1, T2> {
-    pub fn get_total_map_types(&self) -> usize {
+    pub fn total_map_types(&self) -> usize {
         self.selected_stages.len()
     }
-    pub fn get_total_subchapters(&self) -> usize {
+    pub fn total_subchapters(&self) -> usize {
         self.selected_stages.first().unwrap_or(&Vec::new()).len()
     }
-    pub fn get_stars_per_subchapter(&self) -> usize {
+    pub fn stars_per_subchapter(&self) -> usize {
         self.selected_stages
             .first()
             .unwrap_or(&Vec::new())
@@ -1460,7 +1460,7 @@ impl<T1, T2> EventChaptersT<T1, T2> {
             .unwrap_or(&Vec::new())
             .len()
     }
-    pub fn get_stages_per_subchapter(&self) -> usize {
+    pub fn stages_per_subchapter(&self) -> usize {
         self.clear_amounts
             .first()
             .unwrap_or(&Vec::new())
@@ -1628,10 +1628,10 @@ impl Writable for EventChaptersT<i32, i32> {
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        let total_map_types = self.get_total_map_types();
-        let total_subchapters = self.get_total_subchapters();
-        let stars_per_subchapter = self.get_stars_per_subchapter();
-        let stages_per_subchapter = self.get_stages_per_subchapter();
+        let total_map_types = self.total_map_types();
+        let total_subchapters = self.total_subchapters();
+        let stars_per_subchapter = self.stars_per_subchapter();
+        let stages_per_subchapter = self.stages_per_subchapter();
         let (total_map_types, total_subchapters, stars_per_subchapter) = match args.gv.0 {
             ..=5 => (3, 50, 1),
             6 => (3, 150, 1),
@@ -2302,7 +2302,7 @@ impl<T1, T2: From<T1>> From<CatsField<T1>> for Vec<T2> {
     }
 }
 
-pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
+pub fn total_cats_from_gv(gv: GameVersion) -> Option<usize> {
     Some(match gv.0 {
         1 => 88,
         2..=4 => 122,
@@ -2329,7 +2329,7 @@ where
         reader: &mut R,
         args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<Self> {
-        let args = if let Some(t) = get_total_cats_from_gv(args.gv) {
+        let args = if let Some(t) = total_cats_from_gv(args.gv) {
             VecArgs::new_empty_fixed(t)
         } else {
             VecArgs::new_empty_i32()
@@ -2349,7 +2349,7 @@ impl<T: for<'a> Writable<Args<'a> = ()> + std::fmt::Debug + Default> Writable fo
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        let args = if let Some(t) = get_total_cats_from_gv(args.gv) {
+        let args = if let Some(t) = total_cats_from_gv(args.gv) {
             VecArgs::new_empty_fixed(t)
         } else {
             VecArgs::new_empty_i32()

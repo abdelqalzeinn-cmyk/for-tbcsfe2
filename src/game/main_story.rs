@@ -497,7 +497,7 @@ impl StoryChapters {
         self.set_clear_amount(opts.stage, opts.clear_amount);
     }
     pub fn add_chapter_progress(&mut self, stage: StoryStage) -> bool {
-        let current = self.get_chapter_progress(stage.chapter);
+        let current = self.chapter_progress(stage.chapter);
 
         let stage_id: i32 = stage.stage_id.into();
 
@@ -516,13 +516,13 @@ impl StoryChapters {
 
         *progress = stage.stage_id.into();
     }
-    pub fn get_chapter_progress(&self, chapter: StoryChapterType) -> i32 {
+    pub fn chapter_progress(&self, chapter: StoryChapterType) -> i32 {
         *self
             .chapter_progress
             .get(chapter.into_chapter_index())
             .expect("chapter index was correctly calculated")
     }
-    pub fn get_clear_amount(&self, stage: StoryStage) -> i32 {
+    pub fn clear_amount(&self, stage: StoryStage) -> i32 {
         let stages = self
             .clear_times
             .get(stage.chapter.into_chapter_index())
@@ -535,7 +535,7 @@ impl StoryChapters {
     }
 
     pub fn add_clear_amount(&mut self, stage: StoryStage, amount: i32) {
-        if self.get_clear_amount(stage) == 0 {
+        if self.clear_amount(stage) == 0 {
             self.set_clear_amount(stage, amount);
         }
     }

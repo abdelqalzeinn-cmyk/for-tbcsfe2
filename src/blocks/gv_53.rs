@@ -28,57 +28,6 @@ pub struct GV53Block {
     pub ex_stages: Vec<[i32; 12]>,
 }
 
-impl GV53Block {
-    /// returns the previous value if the index is valid
-    pub fn set_catseye(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catseyes.get_mut(index) {
-            let tmp = *prev;
-
-            *prev = val;
-
-            Some(tmp)
-        } else {
-            None
-        }
-    }
-
-    pub fn get_catseye(&self, index: usize) -> Option<i32> {
-        self.catseyes.get(index).map(|v| *v)
-    }
-    /// returns the previous value if the index is valid
-    pub fn set_catfruit(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catfruit.get_mut(index) {
-            let tmp = *prev;
-
-            *prev = val;
-
-            Some(tmp)
-        } else {
-            None
-        }
-    }
-
-    pub fn get_catfruit(&self, index: usize) -> Option<i32> {
-        self.catfruit.get(index).map(|v| *v)
-    }
-    /// returns the previous value if the index is valid
-    pub fn set_catamin(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catamins.get_mut(index) {
-            let tmp = *prev;
-
-            *prev = val;
-
-            Some(tmp)
-        } else {
-            None
-        }
-    }
-
-    pub fn get_catamin(&self, index: usize) -> Option<i32> {
-        self.catamins.get(index).map(|v| *v)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gamatoto {

@@ -6,14 +6,14 @@ use std::{
 pub trait ExternalSaveSource: Send + 'static {
     type Error: Send + Display + 'static;
 
-    fn get_save_path(pkg: &str) -> PathBuf {
+    fn pkg_save_path(pkg: &str) -> PathBuf {
         PathBuf::from("/data")
             .join("data")
             .join(pkg)
             .join("files")
             .join("SAVE_DATA")
     }
-    fn get_account_info_path(pkg: &str, inquiry_code: &str) -> PathBuf {
+    fn pkg_account_info_path(pkg: &str, inquiry_code: &str) -> PathBuf {
         PathBuf::from("/data")
             .join("data")
             .join(pkg)
@@ -27,7 +27,7 @@ pub trait ExternalSaveSource: Send + 'static {
         pkg: &str,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async {
-            let path = Self::get_save_path(pkg);
+            let path = Self::pkg_save_path(pkg);
 
             self.write_path(data, &path).await
         }
@@ -37,7 +37,7 @@ pub trait ExternalSaveSource: Send + 'static {
         pkg: &str,
     ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send {
         async {
-            let path = Self::get_save_path(pkg);
+            let path = Self::pkg_save_path(pkg);
 
             self.read_path(&path).await
         }
@@ -49,7 +49,7 @@ pub trait ExternalSaveSource: Send + 'static {
         inquiry_code: &str,
     ) -> impl std::future::Future<Output = Result<Vec<u8>, Self::Error>> + Send {
         async {
-            self.read_path(&Self::get_account_info_path(pkg, inquiry_code))
+            self.read_path(&Self::pkg_account_info_path(pkg, inquiry_code))
                 .await
         }
     }
@@ -60,7 +60,7 @@ pub trait ExternalSaveSource: Send + 'static {
         info: Vec<u8>,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async {
-            self.write_path(info, &Self::get_account_info_path(pkg, inquiry_code))
+            self.write_path(info, &Self::pkg_account_info_path(pkg, inquiry_code))
                 .await
         }
     }
@@ -97,7 +97,7 @@ pub trait ExternalSaveSource: Send + 'static {
         }
     }
 
-    fn get_all_game_packages(
+    fn all_game_packages(
         &mut self,
     ) -> impl std::future::Future<Output = Result<Vec<String>, Self::Error>> + Send;
 }

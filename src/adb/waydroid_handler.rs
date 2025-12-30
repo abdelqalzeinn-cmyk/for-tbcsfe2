@@ -168,7 +168,7 @@ impl WaydroidGameHandler {
     }
 
     pub fn set_selected_device(&mut self, device: AdbDevice) {
-        self.handler.adb.set_device(device);
+        self.handler.adb.set_selected_device(device);
     }
 }
 
@@ -188,7 +188,7 @@ impl ExternalSaveSource for WaydroidGameHandler {
     async fn run_game(&mut self, pkg: &str) -> Result<(), Self::Error> {
         self.handler.run_program(pkg).await
     }
-    async fn get_all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
+    async fn all_game_packages(&mut self) -> Result<Vec<String>, Self::Error> {
         let res = self
             .handler
             .run_command(&[
