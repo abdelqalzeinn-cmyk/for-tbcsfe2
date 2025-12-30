@@ -11,7 +11,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 80600)]
 pub struct GV80600Block {
-    pub unknown_vec: LengthVec<i16, i32>,
+    #[rw(with = "LengthVec<i16, i32>")]
+    pub unknown_vec: Vec<i32>,
     pub legend_quest_chapters: LegendQuest,
     pub uknown_short: i16,
     pub unknown_byte: i8,
@@ -58,7 +59,7 @@ impl Readable for LegendQuestStage {
 impl Writable for LegendQuestStage {
     type Args<'a> = VecArgs<VecArgs<()>>;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -96,7 +97,7 @@ impl Readable for LegendQuestChapters {
 impl Writable for LegendQuestChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -141,20 +142,17 @@ impl Readable for LegendQuest {
 impl Writable for LegendQuest {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        self.chapters.write_no_opts(writer)?;
+        let length = self.chapters.chapters.total_chapters();
+        let length1 = self.chapters.chapters.total_stages();
 
-        self.unknown.write(
-            writer,
-            VecArgs::new_empty_fixed(self.chapters.chapters.total_chapters()),
-        )?;
-        self.ids.write(
-            writer,
-            VecArgs::new_empty_fixed(self.chapters.chapters.total_stages()),
-        )?;
+        self.chapters.write_no_opts(writer)?;
+        self.unknown
+            .write(writer, VecArgs::new_empty_fixed(length))?;
+        self.ids.write(writer, VecArgs::new_empty_fixed(length1))?;
 
         Ok(())
     }

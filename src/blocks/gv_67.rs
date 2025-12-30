@@ -14,7 +14,8 @@ pub struct GV67Block {
     pub item_pack_three_days_started: bool,
     pub item_pack_three_days_end: f64,
     pub challenge: ChallengeChapters,
-    pub challenge_scores: LengthVec<i32, i32>,
+    #[rw(with = "LengthVec<i32, i32>")]
+    pub challenge_scores: Vec<i32>,
     pub show_challenge_popup: bool,
 }
 
@@ -32,8 +33,8 @@ pub struct DojoRanking {
     pub should_show_rank_description: bool,
     pub should_show_start_message: bool,
     pub submit_error_flag: bool,
-    #[rw(min_gv = 140500)]
-    pub other: Option<LengthString<i32>>,
+    #[rw(min_gv = 140500, with = "LengthString<i32>")]
+    pub other: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -57,7 +58,7 @@ impl Readable for ChallengeChapters {
 impl Writable for ChallengeChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {

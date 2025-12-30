@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
@@ -16,8 +18,8 @@ pub struct GV55Block {
     pub platinum_tickets: i32,
     #[rw(gvcc)]
     pub logins: LoginBonus,
-    #[rw(max_gv = 100999)]
-    pub reset_item_reward_flags: Option<LengthVec<i32, bool>>,
+    #[rw(max_gv = 100999, with = "LengthVec<i32, bool>")]
+    pub reset_item_reward_flags: Vec<bool>,
     pub reward_remaining_time: f64,
     pub last_checked_reward_time: f64,
     pub announcements: [(i32, i32); 16],
@@ -28,13 +30,13 @@ pub struct GV55Block {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LoginBonus {
-    Old(LengthVec<i32, i32>),
-    New(HashMapLength<i32, i32, i32>),
+    Old(Vec<i32>),
+    New(HashMap<i32, i32>),
 }
 
 impl Default for LoginBonus {
     fn default() -> Self {
-        Self::New(HashMapLength::default())
+        Self::New(HashMap::default())
     }
 }
 
@@ -45,8 +47,12 @@ impl Readable for LoginBonus {
         args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<Self> {
         match args.gv.0 {
-            0..80000 => Ok(Self::Old(LengthVec::read_no_opts(reader)?)),
-            _ => Ok(Self::New(HashMapLength::read_no_opts(reader)?)),
+            0..80000 => Ok(Self::Old(
+                <LengthVec<i32, i32>>::read_no_opts(reader)?.into(),
+            )),
+            _ => Ok(Self::New(
+                <HashMapLength<i32, i32, i32>>::read_no_opts(reader)?.into(),
+            )),
         }
     }
 }
@@ -54,16 +60,30 @@ impl Readable for LoginBonus {
 impl Writable for LoginBonus {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
-        _args: Self::Args<'_>,
+        args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        // we don't need to convert any incorrect data types here since they will write to
-        // approximately the same thing anyway
-        match self {
-            LoginBonus::Old(length_vec) => length_vec.write_no_opts(writer)?,
-            LoginBonus::New(hash_map_length) => hash_map_length.write_no_opts(writer)?,
-        };
+        if args.gv.0 < 80000 {
+            match self {
+                LoginBonus::Old(items) => {
+                    <LengthVec<i32, i32>>::write_no_opts(items.into(), writer)?
+                }
+                LoginBonus::New(hash_map) => {
+                    <LengthVec<i32, i32>>::write_no_opts(LengthVec::new(Vec::new()), writer)? // TODO: actually convert data
+                }
+            }
+        } else {
+            match self {
+                LoginBonus::Old(items) => <HashMapLength<i32, i32, i32>>::write_no_opts(
+                    HashMapLength::new(HashMap::new()), // TODO: actually convert data
+                    writer,
+                )?,
+                LoginBonus::New(hash_map) => {
+                    <HashMapLength<i32, i32, i32>>::write_no_opts(hash_map.into(), writer)?
+                }
+            }
+        }
 
         Ok(())
     }

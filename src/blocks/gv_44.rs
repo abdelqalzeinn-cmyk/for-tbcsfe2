@@ -16,12 +16,13 @@ pub struct GV44Block {
     pub item_reward_chapters: ItemRewardChapters<bool>,
     #[rw(gvcc)]
     pub timed_score_chapters: ItemRewardChapters<i32>,
-    pub inquiry_code: LengthString<i32>,
+    #[rw(with = "LengthString<i32>")]
+    pub inquiry_code: String,
     pub play_time: i32,
     pub has_account: i8,
     pub backup_state: i32,
     #[rw(jp = false)]
-    pub ub2: Option<bool>,
+    pub ub2: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -66,7 +67,7 @@ impl<T: for<'a> Writable<Args<'a> = ()> + Default + std::fmt::Debug> Writable
 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {

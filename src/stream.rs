@@ -7,6 +7,9 @@ use std::{
     marker::PhantomData,
 };
 
+#[cfg(feature = "serde")]
+use serde::Deserialize;
+
 #[derive(Debug)]
 pub struct StreamError {
     pub error: std::io::Error,
@@ -91,7 +94,7 @@ pub trait Readable: Sized {
 
 pub trait Writable: Sized {
     type Args<'a>;
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()>;
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()>;
 }
 
 pub trait ResultCtx: Sized {
@@ -157,7 +160,7 @@ pub trait ReadableNoOptions: Sized {
 }
 
 pub trait WritableNoOptions {
-    fn write_no_opts<W: Write + Seek>(&self, writer: &mut W) -> StreamResult<()>;
+    fn write_no_opts<W: Write + Seek>(self, writer: &mut W) -> StreamResult<()>;
 }
 
 impl<'a, T: Readable<Args<'a> = ()>> ReadableNoOptions for T {
@@ -167,7 +170,7 @@ impl<'a, T: Readable<Args<'a> = ()>> ReadableNoOptions for T {
 }
 
 impl<'a, T: Writable<Args<'a> = ()>> WritableNoOptions for T {
-    fn write_no_opts<W: Write + Seek>(&self, writer: &mut W) -> StreamResult<()> {
+    fn write_no_opts<W: Write + Seek>(self, writer: &mut W) -> StreamResult<()> {
         self.write(writer, ())
     }
 }
@@ -201,7 +204,7 @@ macro_rules! impl_writeable {
         impl Writable for $typ {
             type Args<'a> = ();
             fn write<W: Write + Seek>(
-                &self,
+                self,
                 writer: &mut W,
                 _args: Self::Args<'_>,
             ) -> StreamResult<()> {
@@ -234,7 +237,7 @@ impl Readable for bool {
 
 impl Writable for bool {
     type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+    fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
         let data: u8 = match self {
             true => 1,
             false => 0,
@@ -296,8 +299,8 @@ impl Readable for String {
 
 impl Writable for String {
     type Args<'a> = VecArgsLength;
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
-        let data = self.as_bytes();
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+        let data = self.into_bytes();
 
         data.write(writer, VecArgs::new_empty(args))
             .add_context(|| "write string data")
@@ -364,22 +367,22 @@ impl<T: for<'a> Readable<Args<'a>: Clone> + std::fmt::Debug> Readable for Vec<T>
     }
 }
 
-impl<T: for<'a> Writable<Args<'a>: Clone> + std::fmt::Debug + Default> Writable for Vec<T> {
+// impl<T: for<'a> Writable<Args<'a>: Clone> + std::fmt::Debug + Default> Writable for Vec<T> {
+//     type Args<'a> = VecArgs<T::Args<'a>>;
+
+//     fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+//         self.as_slice().write(writer, args)
+//     }
+// }
+impl<T: for<'a> Writable<Args<'a>: Clone> + Default + std::fmt::Debug> Writable for Vec<T> {
     type Args<'a> = VecArgs<T::Args<'a>>;
 
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
-        self.as_slice().write(writer, args)
-    }
-}
-impl<T: for<'a> Writable<Args<'a>: Clone> + Default + std::fmt::Debug> Writable for &[T] {
-    type Args<'a> = VecArgs<T::Args<'a>>;
-
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
         let fixed_length = args.length.write(writer, self.len())?;
 
         let length = self.len();
 
-        for (i, item) in self.iter().enumerate().take(fixed_length) {
+        for (i, item) in self.into_iter().enumerate().take(fixed_length) {
             item.write(writer, args.item.clone()).add_context(|| {
                 format!(
                     "write {i}/{fixed_length} {} for {}",
@@ -430,8 +433,8 @@ impl<T: for<'a> Readable<Args<'a>: Clone> + std::fmt::Debug, const N: usize> Rea
 impl<T: for<'a> Writable<Args<'a>: Clone> + std::fmt::Debug, const N: usize> Writable for [T; N] {
     type Args<'a> = T::Args<'a>;
 
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
-        for (i, item) in self.iter().enumerate() {
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+        for (i, item) in self.into_iter().enumerate() {
             item.write(writer, args.clone()).add_context(|| {
                 format!(
                     "write {i}/{N} {} for {}",
@@ -493,6 +496,24 @@ impl_from_usize!(i64);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LengthVec<L, T>(pub Vec<T>, PhantomData<L>);
 
+impl<L, T> LengthVec<L, T> {
+    pub fn new(items: Vec<T>) -> Self {
+        Self(items, PhantomData)
+    }
+}
+
+impl<T1, T2, T3: From<T2>> From<Vec<T2>> for LengthVec<T1, T3> {
+    fn from(value: Vec<T2>) -> Self {
+        Self(value.into_iter().map(|v| v.into()).collect(), PhantomData)
+    }
+}
+
+impl<T1, T2, T3: From<T2>> From<LengthVec<T1, T2>> for Vec<T3> {
+    fn from(value: LengthVec<T1, T2>) -> Self {
+        value.0.into_iter().map(|v| v.into()).collect()
+    }
+}
+
 impl<
     L: for<'a> Readable<Args<'a> = ()> + ToUsize,
     T: for<'a> Readable<Args<'a> = ()> + std::fmt::Debug,
@@ -514,13 +535,13 @@ impl<
 > Writable for LengthVec<L, T>
 {
     type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
-        let length = L::from_usize(self.0.len());
+    fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+        let len = self.0.len();
+        let length = L::from_usize(len);
 
         length.write_no_opts(writer)?;
 
-        self.0
-            .write(writer, VecArgs::new_empty_fixed(self.0.len()))?;
+        self.0.write(writer, VecArgs::new_empty_fixed(len))?;
         Ok(())
     }
 }
@@ -532,6 +553,12 @@ pub struct LengthString<L>(pub String, PhantomData<L>);
 impl<L> From<String> for LengthString<L> {
     fn from(value: String) -> Self {
         Self(value, PhantomData)
+    }
+}
+
+impl<L> From<LengthString<L>> for String {
+    fn from(value: LengthString<L>) -> Self {
+        value.0
     }
 }
 
@@ -558,12 +585,13 @@ impl<L: for<'a> Readable<Args<'a> = ()> + ToUsize> Readable for LengthString<L> 
 
 impl<L: for<'a> Writable<Args<'a> = ()> + FromUsize> Writable for LengthString<L> {
     type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+    fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
         let length = L::from_usize(self.0.len());
 
         length.write_no_opts(writer)?;
 
-        self.0.write(writer, VecArgsLength::Fixed(self.0.len()))
+        let len = self.0.len();
+        self.0.write(writer, VecArgsLength::Fixed(len))
     }
 }
 
@@ -590,7 +618,7 @@ macro_rules! impl_write_tuple {
             for ($($type),+)
         {
             type Args<'a> = ();
-            fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+            fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
                 $(
                     self.$num.write_no_opts(writer).add_context(|| format!("write {}", $num))?;
                 )+
@@ -669,7 +697,7 @@ impl Readable for VariableLengthInt {
 
 impl Writable for VariableLengthInt {
     type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+    fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
         let mut value = self.0;
         let mut i2 = 0;
         let mut i = 0;
@@ -693,18 +721,48 @@ impl Writable for VariableLengthInt {
 }
 
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct HashMapLength<L, K: Eq + Hash, V>(pub HashMap<K, V>, PhantomData<L>);
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct HashMapLength<L, K, V>(pub HashMap<K, V>, PhantomData<L>);
 
-impl<L, K: Eq + Hash, V> HashMapLength<L, K, V> {
+#[cfg(feature = "serde")]
+impl<'de, L, K: Eq + Hash + Deserialize<'de>, V: Deserialize<'de>> serde::Deserialize<'de>
+    for HashMapLength<L, K, V>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        <HashMap<K, V> as serde::Deserialize>::deserialize(deserializer).map(|v| v.into())
+    }
+}
+
+impl<L, K, V> HashMapLength<L, K, V> {
     pub fn new(map: HashMap<K, V>) -> Self {
         Self(map, PhantomData)
     }
 }
 
-impl<L, K: Eq + Hash, V> From<HashMap<K, V>> for HashMapLength<L, K, V> {
-    fn from(value: HashMap<K, V>) -> Self {
-        Self::new(value)
+impl<L, K1, K2: Eq + Hash + From<K1>, V1, V2: From<V1>> From<HashMap<K1, V1>>
+    for HashMapLength<L, K2, V2>
+{
+    fn from(value: HashMap<K1, V1>) -> Self {
+        Self::new(
+            value
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect(),
+        )
+    }
+}
+impl<L, K1, K2: Eq + Hash + From<K1>, V1, V2: From<V1>> From<HashMapLength<L, K1, V1>>
+    for HashMap<K2, V2>
+{
+    fn from(value: HashMapLength<L, K1, V1>) -> Self {
+        value
+            .0
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect()
     }
 }
 
@@ -726,17 +784,18 @@ impl<
 
 impl<
     L: for<'a> Writable<Args<'a> = ()> + FromUsize,
-    K: Eq + Hash + for<'a> Writable<Args<'a> = ()> + std::fmt::Display + Default,
+    K: for<'a> Writable<Args<'a> = ()> + std::fmt::Display + Default,
     V: for<'a> Writable<Args<'a> = ()> + std::fmt::Debug + Default,
 > Writable for HashMapLength<L, K, V>
 {
     type Args<'a> = ();
-    fn write<W: Write + Seek>(&self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
-        let length = L::from_usize(self.0.len());
+    fn write<W: Write + Seek>(self, writer: &mut W, _args: Self::Args<'_>) -> StreamResult<()> {
+        let len = self.0.len();
+        let length = L::from_usize(len);
 
         length.write_no_opts(writer)?;
 
-        self.0.write(writer, VecArgsLength::Fixed(self.0.len()))
+        self.0.write(writer, VecArgsLength::Fixed(len))
     }
 }
 
@@ -777,16 +836,18 @@ impl<
 {
     type Args<'a> = VecArgsLength;
 
-    fn write<W: Write + Seek>(&self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
         let fixed_length = args.write(writer, self.len())?;
 
         let length = self.len();
 
-        for (k, v) in self.iter().take(fixed_length) {
+        for (k, v) in self.into_iter().take(fixed_length) {
+            let ks = k.to_string();
+            let vs = format!("{v:?}");
             k.write_no_opts(writer)
-                .add_context(|| format!("writing key: {k} for hashmap"))?;
+                .add_context(|| format!("writing key: {ks} for hashmap"))?;
             v.write_no_opts(writer)
-                .add_context(|| format!("writing value: {v:?} for hashmap"))?;
+                .add_context(|| format!("writing value: {vs} for hashmap"))?;
         }
 
         if fixed_length > length {

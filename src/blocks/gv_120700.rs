@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     country_code::CountryCode,
     save::GVCC,
@@ -7,7 +9,7 @@ use crate::{
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GV120700Block {
-    pub u1: Option<HashMapLength<i8, LengthString<i32>, LengthString<i32>>>,
+    pub u1: Option<HashMap<String, String>>,
 }
 
 impl Readable for GV120700Block {
@@ -25,7 +27,9 @@ impl Readable for GV120700Block {
             Ok(Self { u1: None })
         } else {
             let u1 = <HashMapLength<i8, LengthString<i32>, LengthString<i32>>>::read(reader, ())?;
-            let se = Self { u1: Some(u1) };
+            let se = Self {
+                u1: Some(u1.into()),
+            };
 
             let pos = reader.stream_position()?;
             let gv = u32::read(reader, ())?;
@@ -47,7 +51,7 @@ impl Readable for GV120700Block {
 impl Writable for GV120700Block {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -59,10 +63,13 @@ impl Writable for GV120700Block {
         if args.gv.0 < min_gv {
             Ok(())
         } else {
-            self.u1
-                .as_ref()
-                .unwrap_or(&HashMapLength::default())
-                .write(writer, ())?;
+            let val = self.u1.unwrap_or(HashMap::default());
+
+            <HashMapLength<i8, LengthString<i32>, LengthString<i32>>>::write(
+                val.into(),
+                writer,
+                (),
+            )?;
 
             min_gv.write(writer, ())?;
 

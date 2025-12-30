@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
@@ -12,7 +14,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 64)]
 pub struct GV64Block {
-    pub base_materials: LengthVec<i32, i32>,
+    #[rw(with = "LengthVec<i32, i32>")]
+    pub base_materials: Vec<i32>,
     #[rw(gvcc)]
     pub ototo: Ototo,
 }
@@ -24,7 +27,8 @@ pub struct Ototo {
     pub return_flag: bool,
     pub improve_id: i32,
     pub engineers: i32,
-    pub cannon_levels: HashMapLength<i32, i32, LengthVec<i32, i32>>,
+    #[rw(with = "HashMapLength<i32, i32, LengthVec<i32, i32>>")]
+    pub cannon_levels: HashMap<i32, Vec<i32>>,
     #[rw(gvcc)]
     pub selected_parts: OtotoSelectedParts,
     pub last_checked_castle_time: f64,
@@ -60,7 +64,7 @@ impl Readable for OtotoSelectedParts {
 impl Writable for OtotoSelectedParts {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {

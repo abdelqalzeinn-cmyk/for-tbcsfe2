@@ -12,9 +12,12 @@ pub struct GV111000Block {
     pub u4: i8,
     pub u5: bool,
     pub u6: i8,
-    pub u7: LengthVec<i8, i16>,
-    pub u8: LengthVec<i16, i16>,
-    pub u9: LengthVec<i16, i16>,
+    #[rw(with = "LengthVec<i8, i16>")]
+    pub u7: Vec<i16>,
+    #[rw(with = "LengthVec<i16, i16>")]
+    pub u8: Vec<i16>,
+    #[rw(with = "LengthVec<i16, i16>")]
+    pub u9: Vec<i16>,
     pub u10: i32,
     pub u11: i32,
     pub date1: i32,
@@ -30,7 +33,9 @@ pub struct GV111000Block {
     pub u22: bool,
     pub u23: bool,
     pub u24: i8,
-    pub u25: LengthVec<i16, i16>,
+    #[rw(with = "LengthVec<i16, i16>")]
+    pub u25: Vec<i16>,
     pub u26: [bool; 14],
-    pub labyrinth_medals: LengthVec<i8, i16>,
+    #[rw(with = "LengthVec<i8, i16>")]
+    pub labyrinth_medals: Vec<i16>,
 }

@@ -11,20 +11,27 @@ pub struct GV53Block {
     pub last_checked_energy_recovery_time: f64,
     pub time_since_last_check: f64,
     pub last_checked_expedition_time: f64,
-    pub catfruit: LengthVec<i32, i32>,
-    pub cat_fourth_forms: LengthVec<i32, i32>,
-    pub cat_catseyes_used: LengthVec<i32, i32>,
-    pub catseyes: LengthVec<i32, i32>,
-    pub catamins: LengthVec<i32, i32>,
+    #[rw(with = "LengthVec<i32,i32>")]
+    pub catfruit: Vec<i32>,
+    #[rw(with = "LengthVec<i32,i32>")]
+    pub cat_fourth_forms: Vec<i32>,
+    #[rw(with = "LengthVec<i32,i32>")]
+    pub cat_catseyes_used: Vec<i32>,
+    #[rw(with = "LengthVec<i32,i32>")]
+    pub catseyes: Vec<i32>,
+    #[rw(with = "LengthVec<i32,i32>")]
+    pub catamins: Vec<i32>,
     pub gamatoto: Gamatoto,
-    pub unlock_popups: LengthVec<i32, bool>,
-    pub ex_stages: LengthVec<i32, [i32; 12]>,
+    #[rw(with = "LengthVec<i32,bool>")]
+    pub unlock_popups: Vec<bool>,
+    #[rw(with = "LengthVec<i32,[i32;12]>")]
+    pub ex_stages: Vec<[i32; 12]>,
 }
 
 impl GV53Block {
     /// returns the previous value if the index is valid
     pub fn set_catseye(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catseyes.0.get_mut(index) {
+        if let Some(prev) = self.catseyes.get_mut(index) {
             let tmp = *prev;
 
             *prev = val;
@@ -36,11 +43,11 @@ impl GV53Block {
     }
 
     pub fn get_catseye(&self, index: usize) -> Option<i32> {
-        self.catseyes.0.get(index).map(|v| *v)
+        self.catseyes.get(index).map(|v| *v)
     }
     /// returns the previous value if the index is valid
     pub fn set_catfruit(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catfruit.0.get_mut(index) {
+        if let Some(prev) = self.catfruit.get_mut(index) {
             let tmp = *prev;
 
             *prev = val;
@@ -52,11 +59,11 @@ impl GV53Block {
     }
 
     pub fn get_catfruit(&self, index: usize) -> Option<i32> {
-        self.catfruit.0.get(index).map(|v| *v)
+        self.catfruit.get(index).map(|v| *v)
     }
     /// returns the previous value if the index is valid
     pub fn set_catamin(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(prev) = self.catamins.0.get_mut(index) {
+        if let Some(prev) = self.catamins.get_mut(index) {
             let tmp = *prev;
 
             *prev = val;
@@ -68,7 +75,7 @@ impl GV53Block {
     }
 
     pub fn get_catamin(&self, index: usize) -> Option<i32> {
-        self.catamins.0.get(index).map(|v| *v)
+        self.catamins.get(index).map(|v| *v)
     }
 }
 

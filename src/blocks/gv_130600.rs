@@ -6,5 +6,5 @@ use bcsfe_derive::{Readable, Writable};
 pub struct GV130600Block {
     pub u1: i8,
     #[rw(jp = false)]
-    pub u2: Option<i16>,
+    pub u2: i16,
 }

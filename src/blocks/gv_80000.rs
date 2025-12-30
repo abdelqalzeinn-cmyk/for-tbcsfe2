@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{HashMapLength, LengthVec};
@@ -8,7 +10,8 @@ use crate::stream::{HashMapLength, LengthVec};
 pub struct GV80000Block {
     #[rw(gvcc)]
     pub gold_pass: GoldPass,
-    pub cat_talents: HashMapLength<i32, i32, LengthVec<i32, Talent>>,
+    #[rw(with = "HashMapLength<i32, i32, LengthVec<i32, Talent>>")]
+    pub cat_talents: HashMap<i32, Vec<Talent>>,
     pub np: i32,
     pub unknown: bool,
 }
@@ -27,11 +30,12 @@ pub struct GoldPass {
     pub time_error_end: f64,
     pub total_state_updates: i32,
     pub login_bonus_date: f64,
-    pub claimed_rewards: HashMapLength<i32, i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub claimed_rewards: HashMap<i32, i32>,
     pub remaining_days_popup: f64,
     pub first_popup_flag: bool,
     #[rw(min_gv = 80100)]
-    pub badge_flag: Option<bool>,
+    pub badge_flag: bool,
 }
 
 #[derive(Debug, Clone, Copy, Readable, Writable, Default)]

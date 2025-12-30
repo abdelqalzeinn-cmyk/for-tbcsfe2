@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{
@@ -12,9 +14,12 @@ pub struct GV100900Block {
     pub aku: AkuChapters,
     pub u1: bool,
     pub u2: bool,
-    pub u3: HashMapLength<i16, i16, LengthVec<i16, i16>>,
-    pub u4: HashMapLength<i16, i16, f64>,
-    pub u5: HashMapLength<i16, i16, f64>,
+    #[rw(with = "HashMapLength<i16, i16, LengthVec<i16, i16>>")]
+    pub u3: HashMap<i16, Vec<i16>>,
+    #[rw(with = "HashMapLength<i16, i16, f64>")]
+    pub u4: HashMap<i16, f64>,
+    #[rw(with = "HashMapLength<i16, i16, f64>")]
+    pub u5: HashMap<i16, f64>,
     pub u6: bool,
 }
 
@@ -60,7 +65,7 @@ impl Readable for AkuChapters {
 impl Writable for AkuChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {

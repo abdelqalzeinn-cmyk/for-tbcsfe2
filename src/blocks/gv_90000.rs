@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
@@ -17,8 +19,10 @@ pub struct GV90000Block {
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamblingEvent {
-    pub completed: HashMapLength<i16, i16, bool>,
-    pub values: HashMapLength<i16, i16, HashMapLength<i16, i16, i16>>,
+    #[rw(with = "HashMapLength<i16, i16, bool>")]
+    pub completed: HashMap<i16, bool>,
+    #[rw(with = "HashMapLength<i16, i16, HashMapLength<i16, i16, i16>>")]
+    pub values: HashMap<i16, HashMap<i16, i16>>,
     #[rw(gvcc)]
     pub start_times: EventStartTimes90100,
 }
@@ -29,7 +33,9 @@ pub struct Medals {
     pub u1: i32,
     pub u2: i32,
     pub u3: i32,
-    pub data_1: LengthVec<i16, i16>,
-    pub data_2: HashMapLength<i16, i16, i8>,
+    #[rw(with = "LengthVec<i16, i16>")]
+    pub data_1: Vec<i16>,
+    #[rw(with = "HashMapLength<i16, i16, i8>")]
+    pub data_2: HashMap<i16, i8>,
     pub u4: bool,
 }

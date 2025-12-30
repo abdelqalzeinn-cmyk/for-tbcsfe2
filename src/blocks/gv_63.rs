@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::HashMapLength;
@@ -6,5 +8,6 @@ use crate::stream::HashMapLength;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 63)]
 pub struct GV63Block {
-    pub unlock_popups: HashMapLength<i32, i32, bool>,
+    #[rw(with = "HashMapLength<i32, i32, bool>")]
+    pub unlock_popups: HashMap<i32, bool>,
 }

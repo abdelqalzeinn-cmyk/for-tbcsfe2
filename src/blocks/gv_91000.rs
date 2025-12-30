@@ -8,7 +8,19 @@ use crate::{
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SlotNames {
-    pub names: Vec<LengthString<i32>>,
+    pub names: Vec<String>,
+}
+
+impl From<Vec<String>> for SlotNames {
+    fn from(value: Vec<String>) -> Self {
+        Self { names: value }
+    }
+}
+
+impl From<SlotNames> for Vec<String> {
+    fn from(value: SlotNames) -> Self {
+        value.names
+    }
 }
 
 impl Readable for SlotNames {
@@ -22,8 +34,10 @@ impl Readable for SlotNames {
             _ => VecArgs::new_empty_i8(),
         };
 
+        let names = <Vec<LengthString<i32>>>::read(reader, total_slots)?;
+
         Ok(Self {
-            names: Vec::read(reader, total_slots)?,
+            names: names.into_iter().map(|v| v.into()).collect(),
         })
     }
 }
@@ -31,7 +45,7 @@ impl Readable for SlotNames {
 impl Writable for SlotNames {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -40,7 +54,9 @@ impl Writable for SlotNames {
             _ => VecArgs::new_empty_i8(),
         };
 
-        self.names.write(writer, total_slots)
+        let names: Vec<LengthString<i32>> = self.names.into_iter().map(|v| v.into()).collect();
+
+        names.write(writer, total_slots)
     }
 }
 
@@ -48,6 +64,6 @@ impl Writable for SlotNames {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 91000)]
 pub struct GV91000Block {
-    #[rw(gvcc)]
-    pub slot_names: SlotNames,
+    #[rw(gvcc, with = "SlotNames")]
+    pub slot_names: Vec<String>,
 }

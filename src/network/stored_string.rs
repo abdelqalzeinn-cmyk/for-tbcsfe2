@@ -78,26 +78,24 @@ pub fn get_identifier(ident: &str) -> String {
 }
 
 pub fn store_to_save<T: StringStorable + ?Sized>(ident: &str, val: &T, save: &mut Save) {
-    let mut ids = save.get_order_ids();
-    val.store(&get_identifier(ident), &mut ids);
-    save.set_order_ids(ids);
+    val.store(&get_identifier(ident), &mut save.order_ids);
 }
 
 pub fn read_from_save<T: StringStorable>(ident: &str, save: &Save) -> Option<T> {
-    T::read(ident, &save.get_order_ids())
+    T::read(ident, &save.order_ids)
 }
 
 pub fn remove_from_save(ident: &str, save: &mut Save) {
     let ident = get_identifier(ident);
 
     let mut new_ids = Vec::new();
-    for id in save.get_order_ids() {
+    for id in save.order_ids.drain(..) {
         if id.starts_with(&ident) {
             new_ids.push(id);
         }
     }
 
-    save.set_order_ids(new_ids);
+    save.order_ids = new_ids;
 }
 
 const PASSWORD_IDENT: &str = "password";

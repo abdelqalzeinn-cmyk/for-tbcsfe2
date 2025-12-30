@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{HashMapLength, LengthVec};
@@ -15,5 +17,6 @@ pub struct MapResetData {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 72)]
 pub struct GV72Block {
-    pub map_resets: HashMapLength<i32, i32, LengthVec<i32, MapResetData>>,
+    #[rw(with = "HashMapLength<i32, i32, LengthVec<i32, MapResetData>>")]
+    pub map_resets: HashMap<i32, Vec<MapResetData>>,
 }

@@ -11,8 +11,8 @@ pub struct GV45Block {
     pub itf1_complete: i32,
     pub itf_timed_scores: [StaticChapter<TOTAL_CLEAR_TIME_STAGES>; 3],
     pub title_chapter_bg: i32,
-    #[rw(min_gv = 27)]
-    pub combo_unlocks: Option<LengthVec<i32, i32>>,
+    #[rw(min_gv = 27, with = "LengthVec<i32, i32>")]
+    pub combo_unlocks: Vec<i32>,
     pub combo_unlocked_10k_ur: bool,
 }
 
@@ -38,7 +38,7 @@ impl<const N: usize> Readable for StaticChapter<N> {
 impl<const N: usize> Writable for StaticChapter<N> {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<()> {
@@ -52,7 +52,7 @@ impl Default for GV45Block {
             itf_timed_scores: [StaticChapter { data: [0; 51] }; 3],
             itf1_complete: 0,
             title_chapter_bg: 0,
-            combo_unlocks: None,
+            combo_unlocks: Vec::new(),
             combo_unlocked_10k_ur: false,
         }
     }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{HashMapLength, LengthVec};
@@ -6,5 +8,6 @@ use crate::stream::{HashMapLength, LengthVec};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 80700)]
 pub struct GV80700Block {
-    pub unknown: HashMapLength<i32, i32, LengthVec<i32, i32>>,
+    #[rw(with = "HashMapLength<i32, i32, LengthVec<i32, i32>>")]
+    pub unknown: HashMap<i32, Vec<i32>>,
 }

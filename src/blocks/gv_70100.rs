@@ -7,6 +7,7 @@ use crate::{blocks::gv_70000::UncannyChapters, stream::LengthVec};
 #[rw(end_assert = 77)]
 pub struct GV70100Block {
     pub catamin_stages: UncannyChapters,
-    pub lucky_tickets: LengthVec<i32, i32>,
+    #[rw(with = "LengthVec<i32, i32>")]
+    pub lucky_tickets: Vec<i32>,
     pub unknown: bool,
 }

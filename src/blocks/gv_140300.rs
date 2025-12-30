@@ -6,10 +6,13 @@ use crate::stream::LengthVec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 140300)]
 pub struct GV140300Block {
-    pub u1: LengthVec<i8, i8>,
+    #[rw(with = "LengthVec<i8, i8>")]
+    pub u1: Vec<i8>,
     pub u2: bool,
-    pub treasure_chests: LengthVec<i8, i32>,
+    #[rw(with = "LengthVec<i8, i32>")]
+    pub treasure_chests: Vec<i32>,
     pub u3: i32,
-    pub u4: LengthVec<i16, i32>,
+    #[rw(with = "LengthVec<i16, i32>")]
+    pub u4: Vec<i32>,
     pub u5: bool,
 }

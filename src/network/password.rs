@@ -3,9 +3,9 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 use crate::{
     network::{
         account_info::{GameAccountInfo, SaveFileAccount},
-        get_unix_timestamp,
         signature::{sign_v1, sign_v2},
         transfer::{ClientInfo, gen_nonce, new_client},
+        unix_timestamp,
     },
     save::{GVCC, SaveFile},
     stream::StreamError,
@@ -25,7 +25,7 @@ pub fn v1_headers(
     );
     headers.insert(
         "nyanko-timestamp",
-        HeaderValue::from_str(&get_unix_timestamp().to_string())
+        HeaderValue::from_str(&unix_timestamp().to_string())
             .expect("timestamp string was a valid ascii string"),
     );
     headers.insert(
@@ -42,7 +42,7 @@ pub fn v2_headers_empty(auth_token: &str) -> Result<reqwest::header::HeaderMap, 
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     headers.insert(
         "nyanko-timestamp",
-        HeaderValue::from_str(&get_unix_timestamp().to_string())
+        HeaderValue::from_str(&unix_timestamp().to_string())
             .expect("timestamp string was a valid ascii string"),
     );
     headers.insert(
@@ -68,7 +68,7 @@ pub fn v2_headers(
     );
     headers.insert(
         "nyanko-timestamp",
-        HeaderValue::from_str(&get_unix_timestamp().to_string())
+        HeaderValue::from_str(&unix_timestamp().to_string())
             .expect("timestamp string was a valid ascii string"),
     );
     headers.insert(
@@ -340,12 +340,12 @@ impl UploadInfo {
             gvcc: save.gvcc,
             catfood: save.save.catfood,
             rare_tickets: save.save.rare_tickets,
-            platinum_tickets: save.save.get_platinum_tickets().unwrap_or_default(),
-            legend_tickets: save.save.get_legend_tickets().unwrap_or_default(),
-            playtime: save.save.get_play_time().unwrap_or_default(),
+            platinum_tickets: save.save.platinum_tickets(),
+            legend_tickets: save.save.legend_tickets(),
+            playtime: save.save.play_time(),
             user_rank: save.save.calculate_user_rank(),
-            inquiry_code: save.save.get_inquiry_code().map(String::from),
-            password_refresh_token: save.save.get_password_refresh_token().map(String::from),
+            inquiry_code: Some(save.save.inquiry_code().to_string()),
+            password_refresh_token: Some(save.save.password_refresh_token().to_string()),
         }
     }
 }
@@ -368,7 +368,7 @@ pub struct AccountState {
 }
 
 impl AccountState {
-    pub async fn try_get_inquiry_code(&mut self) -> Result<String, PasswordError> {
+    pub async fn try_fetch_inquiry_code(&mut self) -> Result<String, PasswordError> {
         if let Some(ref iq) = self.inquiry_code {
             return Ok(iq.to_string());
         }
@@ -379,21 +379,21 @@ impl AccountState {
         Ok(iq)
     }
     pub async fn init_new_account(&mut self) -> Result<(), PasswordError> {
-        let token = Box::pin(self.try_get_auth_token()).await?;
+        let token = Box::pin(self.try_fetch_auth_token()).await?;
 
-        let iq = self.try_get_inquiry_code().await?;
+        let iq = self.try_fetch_inquiry_code().await?;
 
         update_managed_items(&token, &iq, &self.items).await?;
 
         Ok(())
     }
 
-    pub async fn try_get_password_refresh_token(&mut self) -> Result<String, PasswordError> {
+    pub async fn try_fetch_password_refresh_token(&mut self) -> Result<String, PasswordError> {
         if let Some(ref prt) = self.password_refresh_token {
             return Ok(prt.to_string());
         }
 
-        let iq = self.try_get_inquiry_code().await?;
+        let iq = self.try_fetch_inquiry_code().await?;
 
         let payload = register_new_account(&iq, self.account_created_at)
             .await?
@@ -405,13 +405,13 @@ impl AccountState {
         Ok(payload.password_refresh_token)
     }
 
-    pub async fn try_get_password(&mut self) -> Result<String, PasswordError> {
+    pub async fn try_fetch_password(&mut self) -> Result<String, PasswordError> {
         if let Some(ref pw) = self.account_info.password {
             return Ok(pw.to_string());
         }
 
-        let prt = self.try_get_password_refresh_token().await?;
-        let iq = self.try_get_inquiry_code().await?;
+        let prt = self.try_fetch_password_refresh_token().await?;
+        let iq = self.try_fetch_inquiry_code().await?;
 
         let mut payload = refresh_password(&iq, &prt)
             .await?
@@ -435,13 +435,13 @@ impl AccountState {
         return Ok(payload.password);
     }
 
-    pub async fn try_get_auth_token(&mut self) -> Result<String, PasswordError> {
+    pub async fn try_fetch_auth_token(&mut self) -> Result<String, PasswordError> {
         if let Some(ref token) = self.account_info.auth_token {
             return Ok(token.to_string());
         }
-        let password = self.try_get_password().await?;
-        let iq = self.try_get_inquiry_code().await?;
-        let token = get_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
+        let password = self.try_fetch_password().await?;
+        let iq = self.try_fetch_inquiry_code().await?;
+        let token = fetch_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
             .await?
             .into_payload("get auth token".to_string())
             .map(|v| v.token)
@@ -454,9 +454,9 @@ impl AccountState {
         } else {
             self.account_info.password = None;
 
-            let password = self.try_get_password().await?;
-            let iq = self.try_get_inquiry_code().await?;
-            let token = get_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
+            let password = self.try_fetch_password().await?;
+            let iq = self.try_fetch_inquiry_code().await?;
+            let token = fetch_auth_token(&iq, &password, self.gvcc.cc, self.gvcc.gv)
                 .await?
                 .into_payload("get auth token".to_string())?;
 
@@ -488,7 +488,7 @@ pub async fn upload_save(
         account_created_at: 0, // TODO
     };
 
-    let save_key_payload = get_save_key(&state.try_get_auth_token().await?)
+    let save_key_payload = fetch_save_key(&state.try_fetch_auth_token().await?)
         .await?
         .into_payload("get save key".to_string());
 
@@ -496,37 +496,30 @@ pub async fn upload_save(
         Ok(o) => o,
         Err(_) => {
             state.account_info.auth_token = None;
-            let auth_token = state.try_get_auth_token().await?;
-            get_save_key(&auth_token)
+            let auth_token = state.try_fetch_auth_token().await?;
+            fetch_save_key(&auth_token)
                 .await?
                 .into_payload("get save key".to_string())?
         }
     };
 
-    save_file
-        .save_file
-        .save
-        .set_inquiry_code(state.try_get_inquiry_code().await?);
-    save_file
-        .save_file
-        .save
-        .set_password_refresh_token(state.try_get_password_refresh_token().await?);
-    save_file
-        .account_info
-        .set_password(state.try_get_password().await?);
-    save_file
-        .account_info
-        .set_auth_token(state.try_get_auth_token().await?);
+    *save_file.save_file.save.inquiry_code_mut() = state.try_fetch_inquiry_code().await?;
+    *save_file.save_file.save.password_refresh_token_mut() =
+        state.try_fetch_password_refresh_token().await?;
+
+    save_file.account_info.account_info.password = Some(state.try_fetch_password().await?);
+    save_file.account_info.account_info.auth_token = Some(state.try_fetch_auth_token().await?);
 
     let save_data = save_file
         .save_file
+        .clone()
         .write_with_hash()
         .map_err(PasswordError::SerializeSave)?;
 
     let codes = upload_save_data(
-        &state.try_get_auth_token().await?,
+        &state.try_fetch_auth_token().await?,
         save_key,
-        &state.try_get_inquiry_code().await?,
+        &state.try_fetch_inquiry_code().await?,
         save_data,
         &save_file.account_info.managed_items,
         info.playtime,
@@ -578,7 +571,7 @@ struct AuthTokenRequest<'a> {
     password: &'a str,
 }
 
-pub async fn get_auth_token(
+pub async fn fetch_auth_token(
     inquiry_code: &str,
     password: &str,
     cc: crate::country_code::CountryCode,
@@ -614,7 +607,7 @@ pub struct SaveKeyJsonResponse {
     pub x_amz_signature: String,
 }
 
-pub async fn get_save_key(
+pub async fn fetch_save_key(
     auth_token: &str,
 ) -> Result<RequestJsonResponseV2<SaveKeyJsonResponse>, PasswordError> {
     let url = format!(
@@ -697,7 +690,7 @@ impl ManagedItem {
         Self {
             amount,
             detail_code: uuid::Uuid::new_v4().to_string(),
-            detail_created_at: get_unix_timestamp(),
+            detail_created_at: unix_timestamp(),
             detail_type: if amount.is_negative() {
                 ManagedItemDetailType::Use
             } else {

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{HashMapLength, LengthString};
@@ -7,10 +9,12 @@ use crate::stream::{HashMapLength, LengthString};
 #[rw(end_assert = 100000)]
 pub struct GV100000Block {
     pub legend_tickets: i32,
-    pub u1: HashMapLength<i8, i8, i32>, // FIXME: may not be a hashmap
+    #[rw(with = "HashMapLength<i8, i8, i32>")]
+    pub u1: HashMap<i8, i32>, // FIXME: may not be a hashmap
     pub u2: bool,
     pub u3: bool,
-    pub password_refresh_token: LengthString<i32>,
+    #[rw(with = "LengthString<i32>")]
+    pub password_refresh_token: String,
     pub u4: bool,
     pub u5: i8,
     pub u6: i8,

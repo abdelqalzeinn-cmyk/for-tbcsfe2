@@ -6,6 +6,7 @@ use crate::stream::LengthVec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 100400)]
 pub struct GV100400Block {
-    pub event_capsules_2: LengthVec<i8, i32>,
+    #[rw(with = "LengthVec<i8, i32>")]
+    pub event_capsules_2: Vec<i32>,
     pub two_battle_lines: bool,
 }

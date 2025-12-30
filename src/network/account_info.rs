@@ -40,14 +40,6 @@ pub struct GameAccountInfo {
     pub auth_token: Option<String>,
 }
 
-impl GameAccountInfo {
-    pub fn set_password(&mut self, password: String) {
-        self.password = Some(password);
-    }
-    pub fn set_auth_token(&mut self, token: String) {
-        self.auth_token = Some(token);
-    }
-}
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct EditorAccountInfo {
     pub account_info: GameAccountInfo,
@@ -60,14 +52,6 @@ impl EditorAccountInfo {
             account_info,
             managed_items,
         }
-    }
-
-    pub fn set_password(&mut self, password: String) {
-        self.account_info.set_password(password);
-    }
-
-    pub fn set_auth_token(&mut self, token: String) {
-        self.account_info.set_auth_token(token);
     }
 
     pub fn add_managed_item(&mut self, item: ManagedItem) {
@@ -238,7 +222,7 @@ impl SaveFileAccount {
         })
     }
 
-    pub fn write_to_zip_data(&self) -> Result<Vec<u8>, SaveFileZipError> {
+    pub fn write_to_zip_data(self) -> Result<Vec<u8>, SaveFileZipError> {
         let savedata = self
             .save_file
             .write_with_hash()
@@ -274,7 +258,7 @@ impl SaveFileAccount {
             .into_inner())
     }
 
-    pub fn write_to_path(&self, path: &Path) -> Result<(), SaveFileZipError> {
+    pub fn write_to_path(self, path: &Path) -> Result<(), SaveFileZipError> {
         let path = path.with_extension("zip");
         let data = self.write_to_zip_data()?;
 

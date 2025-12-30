@@ -11,15 +11,25 @@ pub struct GV120000Block {
 }
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct NewChapter {
+pub struct NewMap {
     pub selected_stage: i8,
     pub clear_progress: i8,
     pub unlock_state: i8,
-    pub stages: LengthVec<i16, i16>,
+    #[rw(with = "LengthVec<i16, i16>")]
+    pub stages: Vec<i16>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewChapters {
-    pub chapters: LengthVec<i16, (i8, LengthVec<i8, NewChapter>)>,
+    #[rw(with = "LengthVec<i16, NewChapter>")]
+    pub chapters: Vec<NewChapter>,
+}
+
+#[derive(Debug, Clone, Readable, Writable, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct NewChapter {
+    pub unknown: i8,
+    #[rw(with = "LengthVec<i8, NewMap>")]
+    pub maps: Vec<NewMap>,
 }

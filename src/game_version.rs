@@ -104,7 +104,7 @@ impl Readable for GameVersion {
 impl Writable for GameVersion {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<()> {

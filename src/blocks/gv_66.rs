@@ -50,7 +50,7 @@ impl Readable for TowerItemObtainStates {
 impl Writable for TowerItemObtainStates {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -73,13 +73,20 @@ impl Writable for TowerItemObtainStates {
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Missions {
-    pub clear_states: HashMapLength<i32, i32, i32>,
-    pub requirements: HashMapLength<i32, i32, i32>,
-    pub progress_types: HashMapLength<i32, i32, i32>,
-    pub gamatoto_values: HashMapLength<i32, i32, i32>,
-    pub nyancombo_values: HashMapLength<i32, i32, i32>,
-    pub user_rank_values: HashMapLength<i32, i32, i32>,
-    pub expiry_values: HashMapLength<i32, i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub clear_states: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub requirements: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub progress_types: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub gamatoto_values: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub nyancombo_values: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub user_rank_values: HashMap<i32, i32>,
+    #[rw(with = "HashMapLength<i32, i32, i32>")]
+    pub expiry_values: HashMap<i32, i32>,
     #[rw(gvcc)]
     pub preparing_values: PreparingValues,
 }
@@ -87,36 +94,13 @@ pub struct Missions {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PreparingValues {
-    Old(HashMapLength<i32, i32, bool>),
-    New(HashMapLength<i32, i32, i32>),
-}
-
-impl From<&HashMapLength<i32, i32, bool>> for HashMapLength<i32, i32, i32> {
-    fn from(value: &HashMapLength<i32, i32, bool>) -> Self {
-        let mut new_map = HashMap::with_capacity(value.0.len());
-
-        for (k, v) in &value.0 {
-            new_map.insert(*k, *v as i32);
-        }
-
-        Self::new(new_map)
-    }
-}
-impl From<&HashMapLength<i32, i32, i32>> for HashMapLength<i32, i32, bool> {
-    fn from(value: &HashMapLength<i32, i32, i32>) -> Self {
-        let mut new_map = HashMap::with_capacity(value.0.len());
-
-        for (k, v) in &value.0 {
-            new_map.insert(*k, *v != 0);
-        }
-
-        Self::new(new_map)
-    }
+    Old(HashMap<i32, bool>),
+    New(HashMap<i32, i32>),
 }
 
 impl Default for PreparingValues {
     fn default() -> Self {
-        Self::New(HashMapLength::default())
+        Self::New(HashMap::default())
     }
 }
 
@@ -127,8 +111,12 @@ impl Readable for PreparingValues {
         args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<Self> {
         match args.gv.0 {
-            0..90300 => Ok(Self::Old(HashMapLength::read_no_opts(reader)?)),
-            _ => Ok(Self::New(HashMapLength::read_no_opts(reader)?)),
+            0..90300 => Ok(Self::Old(
+                <HashMapLength<i32, i32, bool>>::read_no_opts(reader)?.into(),
+            )),
+            _ => Ok(Self::New(
+                <HashMapLength<i32, i32, i32>>::read_no_opts(reader)?.into(),
+            )),
         }
     }
 }
@@ -136,17 +124,22 @@ impl Readable for PreparingValues {
 impl Writable for PreparingValues {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
         match args.gv.0 {
             0..90300 => match self {
-                PreparingValues::Old(hash_map_length) => hash_map_length.write_no_opts(writer)?,
+                PreparingValues::Old(hash_map_length) => {
+                    <HashMapLength<i32, i32, bool>>::write_no_opts(hash_map_length.into(), writer)?
+                }
                 PreparingValues::New(hash_map_length) => {
-                    let other: HashMapLength<i32, i32, bool> = hash_map_length.into();
+                    let other: HashMap<i32, bool> = hash_map_length
+                        .into_iter()
+                        .map(|(k, v)| (k, v != 0))
+                        .collect();
 
-                    other.write_no_opts(writer)?;
+                    <HashMapLength<i32, i32, bool>>::write_no_opts(other.into(), writer)?;
                 }
             },
             _ => match self {
@@ -155,7 +148,9 @@ impl Writable for PreparingValues {
 
                     other.write_no_opts(writer)?;
                 }
-                PreparingValues::New(hash_map_length) => hash_map_length.write_no_opts(writer)?,
+                PreparingValues::New(hash_map_length) => {
+                    <HashMapLength<i32, i32, i32>>::write_no_opts(hash_map_length.into(), writer)?
+                }
             },
         };
         Ok(())
@@ -183,7 +178,7 @@ impl Readable for TowerChapters {
 impl Writable for TowerChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {

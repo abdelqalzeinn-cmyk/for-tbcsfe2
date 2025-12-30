@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
@@ -9,8 +11,10 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 90300)]
 pub struct GV90300Block {
-    pub unknown: LengthVec<i16, Unknown90300>,
-    pub unknown_2: HashMapLength<i16, i32, f64>,
+    #[rw(with = "LengthVec<i16, Unknown90300>")]
+    pub unknown: Vec<Unknown90300>,
+    #[rw(with = "HashMapLength<i16, i32, f64>")]
+    pub unknown_2: HashMap<i32, f64>,
     pub gauntlet_chapters: GauntletChapters,
 }
 
@@ -49,10 +53,11 @@ impl Readable for GauntletChapters {
 impl Writable for GauntletChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
+        let length = self.chapters.total_chapters();
         self.chapters.write(
             writer,
             GenericChapterArgs {
@@ -63,10 +68,8 @@ impl Writable for GauntletChapters {
             },
         )?;
 
-        self.unknown.write(
-            writer,
-            VecArgs::new_empty_fixed(self.chapters.total_chapters()),
-        )?;
+        self.unknown
+            .write(writer, VecArgs::new_empty_fixed(length))?;
         Ok(())
     }
 }

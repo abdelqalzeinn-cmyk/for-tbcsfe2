@@ -6,5 +6,6 @@ use crate::stream::LengthVec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 52)]
 pub struct GV52Block {
-    pub catguide_collected: LengthVec<i32, bool>,
+    #[rw(with = "LengthVec<i32, bool>")]
+    pub catguide_collected: Vec<bool>,
 }

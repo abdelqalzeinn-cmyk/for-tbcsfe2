@@ -1,4 +1,4 @@
-use std::{io::Cursor, path::Path};
+use std::{collections::HashMap, io::Cursor, path::Path};
 
 use crate::{
     blocks::{gv_47::GatyaSeed, gv_58::TOTAL_BATTLE_ITEMS, *},
@@ -66,7 +66,7 @@ impl Readable for DateTimeDst {
 impl Writable for DateTimeDst {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -97,7 +97,7 @@ pub struct MainDate {
 impl Writable for MainDate {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -176,6 +176,18 @@ impl Readable for MainDate {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ub1(pub Option<bool>);
 
+impl From<Option<bool>> for Ub1 {
+    fn from(value: Option<bool>) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Ub1> for Option<bool> {
+    fn from(value: Ub1) -> Self {
+        value.0
+    }
+}
+
 impl Readable for Ub1 {
     type Args<'a> = GVCC;
     fn read<R: std::io::Read + std::io::Seek>(
@@ -193,7 +205,7 @@ impl Readable for Ub1 {
 impl Writable for Ub1 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -234,7 +246,7 @@ impl Readable for UnlockPopups8 {
 impl Writable for UnlockPopups8 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -275,13 +287,14 @@ impl SaveFile {
     }
 
     #[cfg(feature = "hash")]
-    pub fn write_with_hash(&self) -> StreamResult<Vec<u8>> {
+    pub fn write_with_hash(self) -> StreamResult<Vec<u8>> {
+        let gvcc = self.gvcc.cc.into();
         let data = self.write_to_data()?;
 
-        crate::hash::add_hash(&data, self.gvcc.cc.into())
+        crate::hash::add_hash(&data, gvcc)
             .ok_or(StreamError::new_str("failed to add hash", u64::MAX))
     }
-    pub fn write_to_data(&self) -> StreamResult<Vec<u8>> {
+    pub fn write_to_data(self) -> StreamResult<Vec<u8>> {
         let mut writer = Cursor::new(Vec::new());
         self.write_no_opts(&mut writer)?;
 
@@ -291,7 +304,7 @@ impl SaveFile {
     }
 
     #[cfg(feature = "hash")]
-    pub fn write_to_path_with_hash(&self, path: &Path) -> StreamResult<()> {
+    pub fn write_to_path_with_hash(self, path: &Path) -> StreamResult<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -302,7 +315,7 @@ impl SaveFile {
         Ok(())
     }
 
-    pub fn write_to_path(&self, path: &Path) -> StreamResult<()> {
+    pub fn write_to_path(self, path: &Path) -> StreamResult<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -339,7 +352,7 @@ impl Writable for SaveFile {
     type Args<'a> = ();
 
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -369,8 +382,8 @@ impl Readable for SaveFile {
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Save {
-    #[rw(gvcc)]
-    pub ub1: Ub1,
+    #[rw(gvcc, with = "Ub1")]
+    pub ub1: Option<bool>,
     pub mute_bgm: bool,
     pub mute_sfx: bool,
     pub catfood: i32,
@@ -400,12 +413,12 @@ pub struct Save {
     pub story_chapters: StoryChapters,
     #[rw(gvcc)]
     pub enemy_guide: EnemyGuide,
-    #[rw(gvcc)]
-    pub unlocked_cats: CatsField<Vec<i32>>,
-    #[rw(gvcc)]
-    pub cat_upgrades: CatsField<Vec<Upgrade>>,
-    #[rw(gvcc)]
-    pub cat_current_forms: CatsField<Vec<Formi32>>,
+    #[rw(gvcc, with = "CatsField<i32>")]
+    pub unlocked_cats: Vec<i32>,
+    #[rw(gvcc, with = "CatsField<Upgrade>")]
+    pub cat_upgrades: Vec<Upgrade>,
+    #[rw(gvcc, with = "CatsField<Formi32>")]
+    pub cat_current_forms: Vec<Form>,
     pub special_skill_upgrades: [Upgrade; 11],
     #[rw(gvcc)]
     pub menu_unlocks: MenuUnlocks1,
@@ -415,8 +428,8 @@ pub struct Save {
     pub uil1: [i32; 20],
     pub moneko_bonus: [i32; 1],
     pub daily_reward_initialized: [i32; 1],
-    #[rw(gvcc, max_gv = 4)]
-    pub unknown_bool_list: Option<UnknownEarlyBoolList>,
+    #[rw(gvcc, max_gv = 4, with = "UnknownEarlyBoolList")]
+    pub unknown_bool_list: Vec<bool>,
     pub locked_battle_items: LockedBattleItems,
     #[rw(gvcc)]
     pub date2: DateTimeDst,
@@ -424,23 +437,24 @@ pub struct Save {
     #[rw(gvcc)]
     pub date3: DateTimeDst,
     #[rw(max_gv = 37)]
-    pub ui0: Option<i32>,
+    pub ui0: i32,
     pub stage_unlock_cat_value: i32,
     pub show_ending_value: i32,
     pub chapter_clear_cat_unlock: i32,
     pub ui9: i32,
     pub ios_android_month: i32,
     pub ui10: i32,
-    pub save_data_4_hash: LengthString<i32>,
+    #[rw(with = "LengthString<i32>")]
+    pub save_data_4_hash: String,
     pub event_item_data: EventItemData,
     pub chara_flags: [i32; 2],
     #[rw(max_gv = 37)]
-    pub uib: Option<(i32, bool)>,
+    pub uib: (i32, bool),
     pub chara_flags2: [i32; 2],
     pub normal_tickets: i32,
     pub rare_tickets: i32,
-    #[rw(gvcc)]
-    pub gacha_seen_cats: CatsField<Vec<i32>>,
+    #[rw(gvcc, with = "CatsField<i32>")]
+    pub gacha_seen_cats: Vec<i32>,
     pub gacha_seen_special_skills: [i32; 10],
     #[rw(gvcc)]
     pub storage: CatStorage,
@@ -450,8 +464,8 @@ pub struct Save {
     pub continue_flag: i32,
     #[rw(gvcc)]
     pub unlock_popups_8: UnlockPopups8,
-    #[rw(gvcc)]
-    pub unit_drops: UnitDrops,
+    #[rw(gvcc, with = "UnitDrops")]
+    pub unit_drops: Option<Vec<i32>>,
     #[rw(gvcc)]
     pub rare_seed: GatyaSeed,
     #[rw(gvcc)]
@@ -463,216 +477,205 @@ pub struct Save {
     pub date4: DateTimeDst,
     #[rw(gvcc)]
     pub gatya: GatyaData,
+    #[rw(jp = false, with = "LengthString<i32>")]
+    pub player_id: String,
+    #[rw(with = "LengthVec<i32, LengthString<i32>>")]
+    pub order_ids: Vec<String>,
     #[rw(jp = false)]
-    pub player_id: Option<LengthString<i32>>,
-    pub order_ids: LengthVec<i32, LengthString<i32>>,
-    #[rw(jp = false)]
-    pub some_time_info: Option<SomeTimeInfo>,
+    pub some_time_info: SomeTimeInfo,
     pub selected_slot: i32,
     #[rw(gvcc)]
     pub unlocked_slots: UnlockedSlots,
     #[rw(gvcc)]
     pub legend_restriction: EventStageLegendRestriction,
     #[rw(max_gv = 37)]
-    pub uill: Option<[[i32; 7]; 3]>,
+    pub uill: [[i32; 7]; 3],
     pub g_timestamp: f64,
     pub server_timestamp: f64,
     pub get_time_save: f64,
     pub unknown_timestamp: f64,
     pub gatya_trade_progress: i32,
-    #[rw(max_gv = 37)]
-    pub usl2: Option<LengthVec<i32, LengthString<i32>>>,
+    #[rw(max_gv = 37, with = "LengthVec<i32, LengthString<i32>>")]
+    pub usl2: Vec<String>,
     #[rw(jp = false)]
-    pub timesave2: Option<f64>,
+    pub timesave2: f64,
     #[rw(en = false, kr = false, tw = false)]
-    pub ui11: Option<i32>,
+    pub ui11: i32,
     #[rw(gvcc)]
     pub ubl1: Ubl1,
-    #[rw(gvcc)]
-    pub max_cat_upgrade_levels: CatsField<Vec<Upgrade>>,
+    #[rw(gvcc, with = "CatsField<Upgrade>")]
+    pub max_cat_upgrade_levels: Vec<Upgrade>,
     pub max_special_skill_levels: [Upgrade; 11],
-    #[rw(gvcc)]
-    pub user_rank_rewards: UserRankRewards,
+    #[rw(gvcc, with = "UserRankRewards")]
+    pub user_rank_rewards: Vec<bool>,
     #[rw(en = false, kr = false, tw = false)]
-    pub timesave3: Option<f64>,
-    #[rw(gvcc)]
-    pub unlocked_forms: CatsField<Vec<Formi32>>,
-    pub transfer_code: LengthString<i32>,
-    pub confirmation_code: LengthString<i32>,
+    pub timesave3: f64,
+    #[rw(gvcc, with = "CatsField<Formi32>")]
+    pub unlocked_forms: Vec<Form>,
+    #[rw(with = "LengthString<i32>")]
+    pub transfer_code: String,
+    #[rw(with = "LengthString<i32>")]
+    pub confirmation_code: String,
     pub transfer_flag: bool,
     #[rw(gvcc, min_gv = 18)]
-    pub gv_44: Option<gv_44::GV44Block>,
+    pub gv_44: gv_44::GV44Block,
     #[rw(gvcc, min_gv = 19)]
-    pub gv_45: Option<gv_45::GV45Block>,
+    pub gv_45: gv_45::GV45Block,
     #[rw(min_gv = 20)]
-    pub gv_46: Option<gv_46::GV46Block>,
+    pub gv_46: gv_46::GV46Block,
     #[rw(gvcc, min_gv = 21)]
-    pub gv_47: Option<gv_47::GV47Block>,
+    pub gv_47: gv_47::GV47Block,
     #[rw(min_gv = 22)]
-    pub gv_48: Option<gv_48::GV48Block>,
+    pub gv_48: gv_48::GV48Block,
     #[rw(gvcc, min_gv = 23)]
-    pub gv_49: Option<gv_49::GV49Block>,
+    pub gv_49: gv_49::GV49Block,
     #[rw(min_gv = 24)]
-    pub gv_50: Option<gv_50::GV50Block>,
+    pub gv_50: gv_50::GV50Block,
     #[rw(min_gv = 25)]
-    pub gv_51: Option<gv_51::GV51Block>,
+    pub gv_51: gv_51::GV51Block,
     #[rw(min_gv = 26)]
-    pub gv_52: Option<gv_52::GV52Block>,
+    pub gv_52: gv_52::GV52Block,
     #[rw(min_gv = 27)]
-    pub gv_53: Option<gv_53::GV53Block>,
+    pub gv_53: gv_53::GV53Block,
     #[rw(min_gv = 29)]
-    pub gv_54: Option<gv_54::GV54Block>,
+    pub gv_54: gv_54::GV54Block,
     #[rw(gvcc, min_gv = 30)]
-    pub gv_55: Option<gv_55::GV55Block>,
+    pub gv_55: gv_55::GV55Block,
     #[rw(min_gv = 31)]
-    pub gv_56: Option<gv_56::GV56Block>,
+    pub gv_56: gv_56::GV56Block,
     #[rw(min_gv = 32)]
-    pub gv_57: Option<gv_57::GV57Block>,
+    pub gv_57: gv_57::GV57Block,
     #[rw(min_gv = 33)]
-    pub gv_58: Option<gv_58::GV58Block>,
+    pub gv_58: gv_58::GV58Block,
     #[rw(min_gv = 34)]
-    pub gv_59: Option<gv_59::GV59Block>,
+    pub gv_59: gv_59::GV59Block,
     #[rw(gvcc, min_gv = 35)]
-    pub gv_60: Option<gv_60::GV60Block>,
+    pub gv_60: gv_60::GV60Block,
     #[rw(min_gv = 36)]
-    pub gv_61: Option<gv_61::GV61Block>,
+    pub gv_61: gv_61::GV61Block,
     #[rw(min_gv = 38)]
-    pub gv_63: Option<gv_63::GV63Block>,
+    pub gv_63: gv_63::GV63Block,
     #[rw(gvcc, min_gv = 39)]
-    pub gv_64: Option<gv_64::GV64Block>,
+    pub gv_64: gv_64::GV64Block,
     #[rw(min_gv = 40)]
-    pub gv_65: Option<gv_65::GV65Block>,
+    pub gv_65: gv_65::GV65Block,
     #[rw(gvcc, min_gv = 41)]
-    pub gv_66: Option<gv_66::GV66Block>,
+    pub gv_66: gv_66::GV66Block,
     #[rw(gvcc, min_gv = 42)]
-    pub gv_67: Option<gv_67::GV67Block>,
+    pub gv_67: gv_67::GV67Block,
     #[rw(min_gv = 43)]
-    pub gv_68: Option<gv_68::GV68Block>,
+    pub gv_68: gv_68::GV68Block,
     #[rw(min_gv = 44)]
-    pub gv_69: Option<gv_69::GV69Block>,
+    pub gv_69: gv_69::GV69Block,
     #[rw(min_gv = 46)]
-    pub gv_71: Option<gv_71::GV71Block>,
+    pub gv_71: gv_71::GV71Block,
     #[rw(min_gv = 47, max_gv = 90299)]
-    pub gv_72: Option<gv_72::GV72Block>,
+    pub gv_72: gv_72::GV72Block,
     #[rw(min_gv = 51)]
-    pub gv_70000: Option<gv_70000::GV70000Block>,
+    pub gv_70000: gv_70000::GV70000Block,
     #[rw(min_gv = 77)]
-    pub gv_70100: Option<gv_70100::GV70100Block>,
+    pub gv_70100: gv_70100::GV70100Block,
     #[rw(gvcc, min_gv = 80000)]
-    pub gv_80000: Option<gv_80000::GV80000Block>,
+    pub gv_80000: gv_80000::GV80000Block,
     #[rw(min_gv = 80200)]
-    pub gv_80200: Option<gv_80200::GV80200Block>,
+    pub gv_80200: gv_80200::GV80200Block,
     #[rw(min_gv = 80300)]
-    pub gv_80300: Option<gv_80300::GV80300Block>,
+    pub gv_80300: gv_80300::GV80300Block,
     #[rw(min_gv = 80500)]
-    pub gv_80500: Option<gv_80500::GV80500Block>,
+    pub gv_80500: gv_80500::GV80500Block,
     #[rw(min_gv = 80600)]
-    pub gv_80600: Option<gv_80600::GV80600Block>,
+    pub gv_80600: gv_80600::GV80600Block,
     #[rw(min_gv = 80700)]
-    pub gv_80700: Option<gv_80700::GV80700Block>,
+    pub gv_80700: gv_80700::GV80700Block,
     #[rw(min_gv = 100600, jp = false, kr = false, tw = false)]
-    pub gv_100600_en: Option<gv_100600::GV100600BlockEn>,
+    pub gv_100600_en: gv_100600::GV100600BlockEn,
     #[rw(min_gv = 81000)]
-    pub gv_81000: Option<gv_81000::GV81000Block>,
+    pub gv_81000: gv_81000::GV81000Block,
     #[rw(gvcc, min_gv = 90000)]
-    pub gv_90000: Option<gv_90000::GV90000Block>,
+    pub gv_90000: gv_90000::GV90000Block,
     #[rw(min_gv = 90100)]
-    pub gv_90100: Option<gv_90100::GV90100Block>,
+    pub gv_90100: gv_90100::GV90100Block,
     #[rw(min_gv = 90300)]
-    pub gv_90300: Option<gv_90300::GV90300Block>,
+    pub gv_90300: gv_90300::GV90300Block,
     #[rw(gvcc, min_gv = 90400)]
-    pub gv_90400: Option<gv_90400::GV90400Block>,
+    pub gv_90400: gv_90400::GV90400Block,
     #[rw(gvcc, min_gv = 90500)]
-    pub gv_90500: Option<gv_90500::GV90500Block>,
+    pub gv_90500: gv_90500::GV90500Block,
     #[rw(gvcc, min_gv = 90700)]
-    pub gv_90700: Option<gv_90700::GV90700Block>,
+    pub gv_90700: gv_90700::GV90700Block,
     #[rw(min_gv = 90800)]
-    pub gv_90800: Option<gv_90800::GV90800Block>,
+    pub gv_90800: gv_90800::GV90800Block,
     #[rw(min_gv = 90900)]
-    pub gv_90900: Option<gv_90900::GV90900Block>,
+    pub gv_90900: gv_90900::GV90900Block,
     #[rw(gvcc, min_gv = 91000)]
-    pub gv_91000: Option<gv_91000::GV91000Block>,
+    pub gv_91000: gv_91000::GV91000Block,
     #[rw(min_gv = 100000)]
-    pub gv_100000: Option<gv_100000::GV100000Block>,
+    pub gv_100000: gv_100000::GV100000Block,
     #[rw(min_gv = 100100)]
-    pub gv_100100: Option<gv_100100::GV100100Block>,
+    pub gv_100100: gv_100100::GV100100Block,
     #[rw(min_gv = 100300)]
-    pub gv_100300: Option<gv_100300::GV100300Block>,
+    pub gv_100300: gv_100300::GV100300Block,
     #[rw(min_gv = 100400)]
-    pub gv_100400: Option<gv_100400::GV100400Block>,
+    pub gv_100400: gv_100400::GV100400Block,
     #[rw(min_gv = 100600)]
-    pub gv_100600: Option<gv_100600::GV100600Block>,
+    pub gv_100600: gv_100600::GV100600Block,
     #[rw(gvcc, min_gv = 100700)]
-    pub gv_100700: Option<gv_100700::GV100700Block>,
+    pub gv_100700: gv_100700::GV100700Block,
     #[rw(min_gv = 100900)]
-    pub gv_100900: Option<gv_100900::GV100900Block>,
+    pub gv_100900: gv_100900::GV100900Block,
     #[rw(min_gv = 101000)]
-    pub gv_101000: Option<gv_101000::GV101000Block>,
+    pub gv_101000: gv_101000::GV101000Block,
     #[rw(min_gv = 110000)]
-    pub gv_110000: Option<gv_110000::GV110000Block>,
+    pub gv_110000: gv_110000::GV110000Block,
     #[rw(min_gv = 110500)]
-    pub gv_110500: Option<gv_110500::GV110500Block>,
+    pub gv_110500: gv_110500::GV110500Block,
     #[rw(min_gv = 110600)]
-    pub gv_110600: Option<gv_110600::GV110600Block>,
+    pub gv_110600: gv_110600::GV110600Block,
     #[rw(gvcc, min_gv = 110700)]
-    pub gv_110700: Option<gv_110700::GV110700Block>,
+    pub gv_110700: gv_110700::GV110700Block,
     #[rw(min_gv = 110800)]
-    pub gv_110800: Option<gv_110800::GV110800Block>,
+    pub gv_110800: gv_110800::GV110800Block,
     #[rw(min_gv = 111000)]
-    pub gv_111000: Option<gv_111000::GV111000Block>,
+    pub gv_111000: gv_111000::GV111000Block,
     #[rw(min_gv = 120000)]
-    pub gv_120000: Option<gv_120000::GV120000Block>,
+    pub gv_120000: gv_120000::GV120000Block,
     #[rw(min_gv = 120100)]
-    pub gv_120100: Option<gv_120100::GV120100Block>,
+    pub gv_120100: gv_120100::GV120100Block,
     #[rw(min_gv = 120200)]
-    pub gv_120200: Option<gv_120200::GV120200Block>,
+    pub gv_120200: gv_120200::GV120200Block,
     #[rw(min_gv = 120400)]
-    pub gv_120400: Option<gv_120400::GV120400Block>,
+    pub gv_120400: gv_120400::GV120400Block,
     #[rw(min_gv = 120500)]
-    pub gv_120500: Option<gv_120500::GV120500Block>,
+    pub gv_120500: gv_120500::GV120500Block,
     #[rw(min_gv = 120600)]
-    pub gv_120600: Option<gv_120600::GV120600Block>,
-    #[rw(gvcc)]
+    pub gv_120600: gv_120600::GV120600Block,
+    #[rw(min_gv = 120700, gvcc)]
     pub gv_120700: gv_120700::GV120700Block,
     #[rw(min_gv = 130100)]
-    pub gv_130100: Option<gv_130100::GV130100Block>,
+    pub gv_130100: gv_130100::GV130100Block,
     #[rw(min_gv = 130301)]
-    pub gv_130301: Option<gv_130301::GV130301Block>,
+    pub gv_130301: gv_130301::GV130301Block,
     #[rw(min_gv = 130400)]
-    pub gv_130400: Option<gv_130400::GV130400Block>,
+    pub gv_130400: gv_130400::GV130400Block,
     #[rw(min_gv = 130500)]
-    pub gv_130500: Option<gv_130500::GV130500Block>,
+    pub gv_130500: gv_130500::GV130500Block,
     #[rw(gvcc, min_gv = 130600)]
-    pub gv_130600: Option<gv_130600::GV130600Block>,
+    pub gv_130600: gv_130600::GV130600Block,
     #[rw(gvcc, min_gv = 130700)]
-    pub gv_130700: Option<gv_130700::GV130700Block>,
+    pub gv_130700: gv_130700::GV130700Block,
     #[rw(min_gv = 140000)]
-    pub gv_140000: Option<gv_140000::GV140000Block>,
+    pub gv_140000: gv_140000::GV140000Block,
     #[rw(min_gv = 140100, max_gv = 140499)]
-    pub gv_140100: Option<gv_140100::GV140100Block>,
+    pub gv_140100: gv_140100::GV140100Block,
     #[rw(gvcc, min_gv = 140200)]
-    pub gv_140200: Option<gv_140200::GV140200Block>,
+    pub gv_140200: gv_140200::GV140200Block,
     #[rw(min_gv = 140300)]
-    pub gv_140300: Option<gv_140300::GV140300Block>,
+    pub gv_140300: gv_140300::GV140300Block,
     #[rw(min_gv = 140500)]
-    pub gv_140500: Option<gv_140500::GV140500Block>,
+    pub gv_140500: gv_140500::GV140500Block,
     #[rw(min_gv = 140700)]
-    pub gv_140700: Option<gv_140700::GV140700Block>,
+    pub gv_140700: gv_140700::GV140700Block,
     pub remaing_data: RemainingData,
-}
-
-macro_rules! set_val_opt {
-    ($name:ident, $block:ident, $item:ident, $type:ty, $val:ty) => {
-        pub fn $name(&mut self, value: $val) {
-            if let Some(ref mut block) = self.$block {
-                block.$item = value;
-            } else {
-                let mut block = <$type>::default();
-                block.$item = value;
-                self.$block = Some(block);
-            }
-        }
-    };
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -720,181 +723,9 @@ impl TryFrom<usize> for BattleItem {
 }
 
 impl Save {
-    pub fn get_catseye(&self, index: usize) -> Option<i32> {
-        self.gv_53.as_ref()?.get_catseye(index)
-    }
-    pub fn set_catseye(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(ref mut gv_53) = self.gv_53 {
-            gv_53.set_catseye(index, val)
-        } else {
-            let mut gv_53 = gv_53::GV53Block::default();
-            let res = gv_53.set_catseye(index, val);
-
-            self.gv_53 = Some(gv_53);
-
-            res
-        }
-    }
-    pub fn get_catfruit(&self, index: usize) -> Option<i32> {
-        self.gv_53.as_ref()?.get_catfruit(index)
-    }
-    pub fn set_catfruit(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(ref mut gv_53) = self.gv_53 {
-            gv_53.set_catfruit(index, val)
-        } else {
-            let mut gv_53 = gv_53::GV53Block::default();
-            let res = gv_53.set_catfruit(index, val);
-
-            self.gv_53 = Some(gv_53);
-
-            res
-        }
-    }
-    pub fn get_catamin(&self, index: usize) -> Option<i32> {
-        self.gv_53.as_ref()?.get_catamin(index)
-    }
-    pub fn set_catamin(&mut self, index: usize, val: i32) -> Option<i32> {
-        if let Some(ref mut gv_53) = self.gv_53 {
-            gv_53.set_catamin(index, val)
-        } else {
-            let mut gv_53 = gv_53::GV53Block::default();
-            let res = gv_53.set_catamin(index, val);
-
-            self.gv_53 = Some(gv_53);
-
-            res
-        }
-    }
-    pub fn get_battle_item(&self, item: BattleItem) -> i32 {
-        *self
-            .battle_items
-            .get(item.into_usize())
-            .expect("BattleItem::into_usize() returns a number between 0 and 5")
-    }
-    pub fn set_battle_item(&mut self, item: BattleItem, val: i32) {
-        *self
-            .battle_items
-            .get_mut(item.into_usize())
-            .expect("BattleItem::into_usize() returns a number between 0 and 5") = val;
-    }
-
-    pub fn get_catfood(&self) -> i32 {
-        self.catfood
-    }
-    pub fn set_catfood(&mut self, catfood: i32) {
-        self.catfood = catfood;
-    }
-    pub fn get_xp(&self) -> i32 {
-        self.xp
-    }
-    pub fn set_xp(&mut self, xp: i32) {
-        self.xp = xp;
-    }
-    pub fn get_normal_tickets(&self) -> i32 {
-        self.normal_tickets
-    }
-    pub fn set_normal_tickets(&mut self, normal_tickets: i32) {
-        self.normal_tickets = normal_tickets;
-    }
-    pub fn get_rare_tickets(&self) -> i32 {
-        self.rare_tickets
-    }
-    pub fn set_rare_tickets(&mut self, rare_tickets: i32) {
-        self.rare_tickets = rare_tickets
-    }
-    pub fn get_platinum_shards(&self) -> Option<i32> {
-        self.gv_100600.as_ref().map(|v| v.platinum_shards)
-    }
-    pub fn get_inquiry_code(&self) -> Option<&str> {
-        Some(&self.gv_44.as_ref()?.inquiry_code.0)
-    }
-    pub fn get_password_refresh_token(&self) -> Option<&str> {
-        Some(&self.gv_100000.as_ref()?.password_refresh_token.0)
-    }
-    pub fn set_inquiry_code(&mut self, inquiry_code: String) {
-        match &mut self.gv_44 {
-            Some(g) => g.inquiry_code.0 = inquiry_code,
-            None => {
-                self.gv_44 = Some(gv_44::GV44Block {
-                    inquiry_code: inquiry_code.into(),
-                    ..Default::default()
-                })
-            }
-        }
-    }
-    pub fn set_password_refresh_token(&mut self, password_refresh_token: String) {
-        match &mut self.gv_100000 {
-            Some(g) => g.password_refresh_token.0 = password_refresh_token,
-            None => {
-                self.gv_100000 = Some(gv_100000::GV100000Block {
-                    password_refresh_token: password_refresh_token.into(),
-                    ..Default::default()
-                })
-            }
-        }
-    }
-    pub fn get_inquiry_code_with_default(&self, default: String) -> String {
-        self.get_inquiry_code()
-            .map(|v| v.to_string())
-            .unwrap_or(default)
-    }
-    pub fn get_password_refresh_token_with_default(&self, default: String) -> String {
-        self.get_password_refresh_token()
-            .map(|v| v.to_string())
-            .unwrap_or(default)
-    }
-
-    pub fn get_legend_tickets(&self) -> Option<i32> {
-        self.gv_100000.as_ref().map(|v| v.legend_tickets)
-    }
-    pub fn get_platinum_tickets(&self) -> Option<i32> {
-        self.gv_55.as_ref().map(|v| v.platinum_tickets)
-    }
-    set_val_opt!(
-        set_platinum_shards,
-        gv_100600,
-        platinum_shards,
-        gv_100600::GV100600Block,
-        i32
-    );
-    set_val_opt!(
-        set_platinum_tickets,
-        gv_55,
-        platinum_tickets,
-        gv_55::GV55Block,
-        i32
-    );
-    set_val_opt!(
-        set_legend_tickets,
-        gv_100000,
-        legend_tickets,
-        gv_100000::GV100000Block,
-        i32
-    );
-
-    pub fn get_np(&self) -> Option<i32> {
-        self.gv_80000.as_ref().map(|v| v.np)
-    }
-    pub fn get_leadership(&self) -> Option<i16> {
-        self.gv_80200.as_ref().map(|v| v.leadership)
-    }
-    set_val_opt!(set_np, gv_80000, np, gv_80000::GV80000Block, i32);
-
-    set_val_opt!(
-        set_leadership,
-        gv_80200,
-        leadership,
-        gv_80200::GV80200Block,
-        i16
-    );
-
-    pub fn get_play_time(&self) -> Option<i32> {
-        self.gv_44.as_ref().map(|v| v.play_time)
-    }
-
     pub fn calculate_user_rank(&self) -> i32 {
         let mut ur: i32 = 0;
-        for (unlocked, level) in self.unlocked_cats.0.iter().zip(self.cat_upgrades.0.iter()) {
+        for (unlocked, level) in self.unlocked_cats.iter().zip(self.cat_upgrades.iter()) {
             if *unlocked != 0 {
                 ur += (level.base as i32) + (level.plus as i32) + 1;
             }
@@ -903,15 +734,36 @@ impl Save {
         ur
     }
 
-    pub fn get_order_ids(&self) -> Vec<String> {
-        self.order_ids.0.iter().map(|v| v.to_string()).collect()
+    pub fn platinum_tickets(&self) -> i32 {
+        self.gv_55.platinum_tickets
     }
 
-    pub fn set_order_ids(&mut self, ids: Vec<String>) {
-        self.order_ids.0 = ids
-            .into_iter()
-            .map(|v| v.into())
-            .collect::<Vec<LengthString<i32>>>();
+    pub fn legend_tickets(&self) -> i32 {
+        self.gv_100000.legend_tickets
+    }
+    pub fn platinum_tickets_mut(&mut self) -> &mut i32 {
+        &mut self.gv_55.platinum_tickets
+    }
+    pub fn inquiry_code(&self) -> &str {
+        &self.gv_44.inquiry_code
+    }
+    pub fn inquiry_code_mut(&mut self) -> &mut String {
+        &mut self.gv_44.inquiry_code
+    }
+
+    pub fn legend_tickets_mut(&mut self) -> &mut i32 {
+        &mut self.gv_100000.legend_tickets
+    }
+
+    pub fn play_time(&self) -> i32 {
+        self.gv_44.play_time
+    }
+
+    pub fn password_refresh_token(&self) -> &str {
+        &self.gv_100000.password_refresh_token
+    }
+    pub fn password_refresh_token_mut(&mut self) -> &mut String {
+        &mut self.gv_100000.password_refresh_token
     }
 }
 
@@ -946,12 +798,12 @@ impl Readable for RemainingData {
 impl Writable for RemainingData {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
-        self.data
-            .write(writer, VecArgs::new_empty_fixed(self.data.len()))
+        let len = self.data.len();
+        self.data.write(writer, VecArgs::new_empty_fixed(len))
     }
 }
 
@@ -1151,7 +1003,7 @@ impl<
 {
     type Args<'a> = GenericChapterArgs;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1238,6 +1090,17 @@ pub type StageClear<T> = Vec<Vec<T>>;
 pub struct UserRankRewards {
     pub rewards: Vec<bool>,
 }
+impl From<Vec<bool>> for UserRankRewards {
+    fn from(value: Vec<bool>) -> Self {
+        Self { rewards: value }
+    }
+}
+
+impl From<UserRankRewards> for Vec<bool> {
+    fn from(value: UserRankRewards) -> Self {
+        value.rewards
+    }
+}
 
 impl Readable for UserRankRewards {
     type Args<'a> = GVCC;
@@ -1260,7 +1123,7 @@ impl Writable for UserRankRewards {
     type Args<'a> = GVCC;
 
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1301,7 +1164,7 @@ impl Readable for Ubl1 {
 impl Writable for Ubl1 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1316,7 +1179,7 @@ impl Writable for Ubl1 {
             }
         };
 
-        self.0.as_ref().unwrap_or(&Vec::new()).write(writer, length)
+        self.0.unwrap_or(Vec::new()).write(writer, length)
     }
 }
 
@@ -1330,9 +1193,9 @@ pub struct GatyaData {
     pub previous_rare_roll_type: i32,
     pub unknown: bool,
     #[rw(min_gv = 2)]
-    pub roll_single: Option<bool>,
+    pub roll_single: bool,
     #[rw(min_gv = 2)]
-    pub roll_multi: Option<bool>,
+    pub roll_multi: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1368,7 +1231,7 @@ impl Readable for EventStageLegendRestriction {
 impl Writable for EventStageLegendRestriction {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1423,7 +1286,7 @@ impl Readable for UnlockedSlots {
 impl Writable for UnlockedSlots {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1433,7 +1296,7 @@ impl Writable for UnlockedSlots {
                 UnlockedSlots::One(o) => {
                     let mut individual = [false; 10];
 
-                    let times = std::cmp::min(10, *o as usize);
+                    let times = std::cmp::min(10, o as usize);
 
                     for item in individual.iter_mut().take(times) {
                         *item = true;
@@ -1462,7 +1325,8 @@ pub struct SomeTimeInfo {
     pub timestamp: f64,
     pub server_time_stamp: f64,
     pub get_time_save: f64,
-    pub usl1: LengthVec<i32, LengthString<i32>>,
+    #[rw(with = "LengthVec<i32, LengthString<i32>>")]
+    pub usl1: Vec<String>,
     pub energy_notification: bool,
     pub full_game_version: i32,
 }
@@ -1471,6 +1335,18 @@ pub struct SomeTimeInfo {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnitDrops {
     pub unit_drops: Option<Vec<i32>>,
+}
+
+impl From<Option<Vec<i32>>> for UnitDrops {
+    fn from(value: Option<Vec<i32>>) -> Self {
+        Self { unit_drops: value }
+    }
+}
+
+impl From<UnitDrops> for Option<Vec<i32>> {
+    fn from(value: UnitDrops) -> Self {
+        value.unit_drops
+    }
 }
 
 impl Readable for UnitDrops {
@@ -1493,7 +1369,7 @@ impl Readable for UnitDrops {
 impl Writable for UnitDrops {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1502,10 +1378,7 @@ impl Writable for UnitDrops {
             _ => VecArgs::new_empty_i32(),
         };
 
-        self.unit_drops
-            .as_ref()
-            .unwrap_or(&Vec::new())
-            .write(writer, length)
+        self.unit_drops.unwrap_or(Vec::new()).write(writer, length)
     }
 }
 
@@ -1527,7 +1400,7 @@ pub struct EventChaptersT<T, T2> {
 impl Writable for EventChaptersT<i8, i16> {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1751,7 +1624,7 @@ impl Readable for EventChaptersT<i32, i32> {
 impl Writable for EventChaptersT<i32, i32> {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -1877,8 +1750,8 @@ impl Default for EventChapters {
     }
 }
 
-impl From<&EventChaptersT<i32, i32>> for EventChaptersT<i8, i16> {
-    fn from(value: &EventChaptersT<i32, i32>) -> Self {
+impl From<EventChaptersT<i32, i32>> for EventChaptersT<i8, i16> {
+    fn from(value: EventChaptersT<i32, i32>) -> Self {
         Self {
             selected_stages: value
                 .selected_stages
@@ -1923,8 +1796,8 @@ impl From<&EventChaptersT<i32, i32>> for EventChaptersT<i8, i16> {
         }
     }
 }
-impl From<&EventChaptersT<i8, i16>> for EventChaptersT<i32, i32> {
-    fn from(value: &EventChaptersT<i8, i16>) -> Self {
+impl From<EventChaptersT<i8, i16>> for EventChaptersT<i32, i32> {
+    fn from(value: EventChaptersT<i8, i16>) -> Self {
         Self {
             selected_stages: value
                 .selected_stages
@@ -1988,7 +1861,7 @@ impl Readable for EventChapters {
 impl Writable for EventChapters {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2048,7 +1921,7 @@ impl Readable for CatStorage {
 impl Writable for CatStorage {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2072,23 +1945,10 @@ impl Writable for CatStorage {
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventItemData {
-    pub values: HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>,
-    pub flags: HashMapLength<VariableLengthInt, VariableLengthInt, bool>,
-}
-
-impl EventItemData {
-    pub fn set_value(&mut self, event_number: u32, value: u32) {
-        self.values.0.insert(event_number.into(), value.into());
-    }
-    pub fn get_value(&self, event_number: u32) -> Option<u32> {
-        self.values.0.get(&event_number.into()).map(|v| v.0)
-    }
-    pub fn set_flag(&mut self, event_number: u32, flag: bool) {
-        self.flags.0.insert(event_number.into(), flag);
-    }
-    pub fn get_flag(&self, event_number: u32) -> Option<bool> {
-        self.flags.0.get(&event_number.into()).map(|v| *v)
-    }
+    #[rw(with = "HashMapLength<VariableLengthInt, VariableLengthInt, VariableLengthInt>")]
+    pub values: HashMap<u32, u32>,
+    #[rw(with = "HashMapLength<VariableLengthInt, VariableLengthInt, bool>")]
+    pub flags: HashMap<u32, bool>,
 }
 
 #[derive(Debug, Copy, Clone, Readable, Writable, Default)]
@@ -2114,6 +1974,18 @@ pub struct UnknownEarlyBoolList {
     pub data: Vec<bool>,
 }
 
+impl From<Vec<bool>> for UnknownEarlyBoolList {
+    fn from(value: Vec<bool>) -> Self {
+        Self { data: value }
+    }
+}
+
+impl From<UnknownEarlyBoolList> for Vec<bool> {
+    fn from(value: UnknownEarlyBoolList) -> Self {
+        value.data
+    }
+}
+
 impl Readable for UnknownEarlyBoolList {
     type Args<'a> = GVCC;
     fn read<R: std::io::Read + std::io::Seek>(
@@ -2135,7 +2007,7 @@ impl Readable for UnknownEarlyBoolList {
 impl Writable for UnknownEarlyBoolList {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2175,7 +2047,7 @@ impl Readable for NewDialogs {
 impl Writable for NewDialogs {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2218,7 +2090,7 @@ impl Readable for MenuUnlocks1 {
 impl Writable for MenuUnlocks1 {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2247,13 +2119,45 @@ pub enum Form {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi32(pub Form);
 
+impl From<Form> for Formi32 {
+    fn from(value: Form) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Formi32> for Form {
+    fn from(value: Formi32) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi16(pub Form);
+impl From<Form> for Formi16 {
+    fn from(value: Form) -> Self {
+        Self(value)
+    }
+}
+impl From<Formi16> for Form {
+    fn from(value: Formi16) -> Self {
+        value.0
+    }
+}
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Formi8(pub Form);
+impl From<Form> for Formi8 {
+    fn from(value: Form) -> Self {
+        Self(value)
+    }
+}
+impl From<Formi8> for Form {
+    fn from(value: Formi8) -> Self {
+        value.0
+    }
+}
 
 impl From<Form> for i32 {
     fn from(val: Form) -> i32 {
@@ -2341,7 +2245,7 @@ impl Readable for Formi8 {
 impl Writable for Formi8 {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2353,7 +2257,7 @@ impl Writable for Formi8 {
 impl Writable for Formi16 {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2365,7 +2269,7 @@ impl Writable for Formi16 {
 impl Writable for Formi32 {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2384,7 +2288,19 @@ pub struct Upgrade {
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct CatsField<T>(pub T);
+pub struct CatsField<T>(pub Vec<T>);
+
+impl<T1, T2: From<T1>> From<Vec<T1>> for CatsField<T2> {
+    fn from(value: Vec<T1>) -> Self {
+        Self(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<T1, T2: From<T1>> From<CatsField<T1>> for Vec<T2> {
+    fn from(value: CatsField<T1>) -> Self {
+        value.0.into_iter().map(|v| v.into()).collect()
+    }
+}
 
 pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
     Some(match gv.0 {
@@ -2406,7 +2322,7 @@ pub fn get_total_cats_from_gv(gv: GameVersion) -> Option<usize> {
 
 impl<T: Readable> Readable for CatsField<T>
 where
-    T: for<'a> Readable<Args<'a> = VecArgs<()>>,
+    T: for<'a> Readable<Args<'a> = ()> + std::fmt::Debug,
 {
     type Args<'a> = GVCC;
     fn read<R: std::io::Read + std::io::Seek>(
@@ -2420,15 +2336,16 @@ where
         };
 
         Ok(CatsField(
-            T::read(reader, args).add_context(|| "read cat data")?,
+            <Vec<T> as crate::stream::Readable>::read(reader, args)
+                .add_context(|| "read cat data")?,
         ))
     }
 }
 
-impl<T: for<'a> Writable<Args<'a> = VecArgs<()>>> Writable for CatsField<T> {
+impl<T: for<'a> Writable<Args<'a> = ()> + std::fmt::Debug + Default> Writable for CatsField<T> {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2438,7 +2355,7 @@ impl<T: for<'a> Writable<Args<'a> = VecArgs<()>>> Writable for CatsField<T> {
             VecArgs::new_empty_i32()
         };
 
-        self.0.write(writer, args)
+        <Vec<T> as crate::stream::Writable>::write(self.0, writer, args)
     }
 }
 
@@ -2469,7 +2386,7 @@ impl Readable for EnemyGuide {
 impl Writable for EnemyGuide {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -2517,7 +2434,7 @@ impl Readable for LineUps {
 impl Writable for LineUps {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {

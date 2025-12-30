@@ -37,7 +37,7 @@ impl Readable for EventCapsules {
 impl Writable for EventCapsules {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -80,17 +80,17 @@ impl Readable for GatyaSeed {
 impl Writable for GatyaSeed {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
         match args.gv.0 {
             0..33 => match self {
                 GatyaSeed::Old(o) => o.write_no_opts(writer)?,
-                GatyaSeed::New(n) => (*n as u64).write_no_opts(writer)?,
+                GatyaSeed::New(n) => (n as u64).write_no_opts(writer)?,
             },
             _ => match self {
-                GatyaSeed::Old(o) => (*o as u32).write_no_opts(writer)?,
+                GatyaSeed::Old(o) => (o as u32).write_no_opts(writer)?,
                 GatyaSeed::New(n) => n.write_no_opts(writer)?,
             },
         };

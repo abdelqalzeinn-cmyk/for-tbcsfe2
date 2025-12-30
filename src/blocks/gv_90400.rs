@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::{
@@ -64,7 +66,7 @@ impl Readable for ExtraEnigmaData {
 impl Writable for ExtraEnigmaData {
     type Args<'a> = GVCC;
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
@@ -93,7 +95,8 @@ pub struct Engima {
     pub enigma_level: i8,
     pub unknown_1: i8,
     pub unknown_2: bool,
-    pub stages: LengthVec<i8, EnigmaStage>,
+    #[rw(with = "LengthVec<i8, EnigmaStage>")]
+    pub stages: Vec<EnigmaStage>,
     #[rw(gvcc)]
     pub extra_data: ExtraEnigmaData,
 }
@@ -119,13 +122,17 @@ pub struct LineupCat {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StageLineup {
     pub index: i16,
-    pub stages: LengthVec<i16, i32>,
+    #[rw(with = "LengthVec<i16, i32>")]
+    pub stages: Vec<i32>,
 }
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ClearedSlots {
-    pub cats: LengthVec<i16, LineupCat>,
-    pub stages: LengthVec<i16, StageLineup>,
-    pub unknown: HashMapLength<i16, i16, bool>,
+    #[rw(with = "LengthVec<i16, LineupCat>")]
+    pub cats: Vec<LineupCat>,
+    #[rw(with = "LengthVec<i16, StageLineup>")]
+    pub stages: Vec<StageLineup>,
+    #[rw(with = "HashMapLength<i16, i16, bool>")]
+    pub unknown: HashMap<i16, bool>,
 }

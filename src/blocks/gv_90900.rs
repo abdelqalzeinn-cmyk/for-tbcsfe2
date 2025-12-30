@@ -18,6 +18,7 @@ pub struct CatShrine {
     pub stamp_1: f64,
     pub stamp_2: f64,
     pub shrine_gone: bool,
-    pub flags: LengthVec<i8, i8>,
+    #[rw(with = "LengthVec<i8,i8>")]
+    pub flags: Vec<i8>,
     pub xp_offering: i64,
 }

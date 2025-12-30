@@ -6,7 +6,7 @@ pub mod signature;
 pub mod stored_string;
 pub mod transfer;
 
-pub fn get_unix_timestamp() -> u64 {
+pub fn unix_timestamp() -> u64 {
     let start = SystemTime::now();
     let duration = start
         .duration_since(UNIX_EPOCH)

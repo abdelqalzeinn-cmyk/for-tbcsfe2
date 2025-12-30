@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bcsfe_derive::{Readable, Writable};
 
 use crate::stream::{HashMapLength, LengthString};
@@ -6,5 +8,6 @@ use crate::stream::{HashMapLength, LengthString};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 130301)]
 pub struct GV130301Block {
-    pub unknown: HashMapLength<i32, LengthString<i32>, (i32, f64)>, // uuid, ?, timestamp
+    #[rw(with = "HashMapLength<i32, LengthString<i32>, (i32, f64)>")]
+    pub unknown: HashMap<String, (i32, f64)>, // uuid, ?, timestamp
 }

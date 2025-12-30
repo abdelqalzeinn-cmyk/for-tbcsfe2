@@ -37,16 +37,14 @@ impl Readable for UncannyChapters {
 impl Writable for UncannyChapters {
     type Args<'a> = ();
     fn write<W: std::io::Write + std::io::Seek>(
-        &self,
+        self,
         writer: &mut W,
         _args: Self::Args<'_>,
     ) -> StreamResult<()> {
+        let length = self.chapters.selected_stages.len();
         self.chapters
             .write(writer, GenericChapterArgs::new_int(false))?;
 
-        self.unknown.write(
-            writer,
-            VecArgs::new_empty_fixed(self.chapters.selected_stages.len()),
-        )
+        self.unknown.write(writer, VecArgs::new_empty_fixed(length))
     }
 }
