@@ -9,8 +9,28 @@ const SAVE_URL: &str = "https://nyanko-save.ponosgames.com";
 #[derive(Debug, serde::Serialize)]
 pub struct Client {
     #[serde(rename = "countryCode")]
-    pub country_code: CountryCode,
+    pub country_code: ClientCountryCode,
     pub version: GameVersion,
+}
+
+#[derive(Debug, Copy, Clone, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientCountryCode {
+    Ja,
+    En,
+    Kr,
+    Tw,
+}
+
+impl From<CountryCode> for ClientCountryCode {
+    fn from(value: CountryCode) -> Self {
+        match value {
+            CountryCode::Jp => Self::Ja,
+            CountryCode::En => Self::En,
+            CountryCode::Kr => Self::Kr,
+            CountryCode::Tw => Self::Tw,
+        }
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -67,7 +87,7 @@ impl ClientInfo {
     pub fn new(cc: CountryCode, gv: GameVersion) -> Self {
         Self {
             client: Client {
-                country_code: cc,
+                country_code: cc.into(),
                 version: gv,
             },
             device: Device {
@@ -81,7 +101,7 @@ impl ClientInfo {
     }
 
     pub fn with_cc(mut self, cc: CountryCode) -> Self {
-        self.client.country_code = cc;
+        self.client.country_code = cc.into();
 
         self
     }
