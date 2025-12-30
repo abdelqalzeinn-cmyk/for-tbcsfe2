@@ -3,7 +3,7 @@ extern crate proc_macro;
 use darling::FromAttributes;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, parse_macro_input};
+use syn::{Data, DeriveInput, Fields, Type, parse_macro_input};
 
 #[derive(Debug, Clone, FromAttributes, Default)]
 #[darling(default, attributes(rw))]

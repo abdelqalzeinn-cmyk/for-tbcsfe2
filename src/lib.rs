@@ -13,6 +13,5 @@ pub mod game_version;
 #[cfg(feature = "hash")]
 pub mod hash;
 
-pub mod asset_manager;
 pub mod save;
 pub mod stream;
