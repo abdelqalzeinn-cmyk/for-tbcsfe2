@@ -22,10 +22,8 @@ impl StringStorable for String {
     fn read(ident: &str, data: &Vec<String>) -> Option<Self> {
         for line in data {
             if line.starts_with(ident) {
-                let val = line.split_once(":");
-                if let Some(val) = val {
-                    return Some(val.1.to_string());
-                }
+                let val = line.split_at(ident.len() + 1).1;
+                return Some(val.to_string());
             }
         }
         return None;
@@ -50,10 +48,8 @@ impl StringStorable for Vec<String> {
         let mut res = Vec::new();
         for line in data {
             if line.starts_with(ident) {
-                let val = line.split_once(":");
-                if let Some(val) = val {
-                    res.push(val.1.to_string());
-                }
+                let val = line.split_at(ident.len() + 1).1;
+                res.push(val.to_string());
             }
         }
         Some(res)
@@ -92,7 +88,7 @@ pub fn remove_and_store_to_save<T: StringStorable + ?Sized>(ident: &str, val: &T
 }
 
 pub fn read_from_save<T: StringStorable>(ident: &str, save: &Save) -> Option<T> {
-    T::read(ident, &save.order_ids)
+    T::read(&format_identifier(ident), &save.order_ids)
 }
 
 pub fn remove_from_save(ident: &str, save: &mut Save) {
@@ -100,7 +96,7 @@ pub fn remove_from_save(ident: &str, save: &mut Save) {
 
     let mut new_ids = Vec::new();
     for id in save.order_ids.drain(..) {
-        if id.starts_with(&ident) {
+        if !id.starts_with(&ident) {
             new_ids.push(id);
         }
     }
