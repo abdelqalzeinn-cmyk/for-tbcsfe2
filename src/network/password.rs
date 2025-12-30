@@ -1,9 +1,12 @@
+use std::{fmt::Display, str::FromStr};
+
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
 
 use crate::{
     network::{
-        account_info::{GameAccountInfo, SaveFileAccount},
+        account_info::GameAccountInfo,
         signature::{sign_v1, sign_v2},
+        stored_string,
         transfer::{ClientInfo, gen_nonce, new_client},
         unix_timestamp,
     },
@@ -98,8 +101,8 @@ pub enum PasswordError {
     GenNonce(std::io::Error),
     #[error("failed to generate json string: {0}")]
     ToJsonStr(serde_json::Error),
-    #[error("password payload was null: {0}")]
-    NullPayload(String),
+    #[error("password payload was null: {0} {1}")]
+    NullPayload(String, String),
     #[error("failed to get response text: {0}")]
     RespText(reqwest::Error),
     #[error("failed to get upload save data: {0}")]
@@ -115,21 +118,7 @@ pub enum PasswordError {
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct RequestJsonResponseV1<P> {
-    pub status_code: i32,
-    pub timestamp: i32,
-    pub payload: Option<P>,
-    pub nonce: Option<String>,
-}
-impl<P> RequestJsonResponseV1<P> {
-    pub fn into_payload(self, ctx: String) -> Result<P, PasswordError> {
-        self.payload.ok_or(PasswordError::NullPayload(ctx))
-    }
-}
-#[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct RequestJsonResponseV2<P> {
+pub struct RequestJsonResponse<P> {
     pub status_code: Option<i32>,
     pub timestamp: Option<i32>,
     pub payload: Option<P>,
@@ -138,12 +127,15 @@ pub struct RequestJsonResponseV2<P> {
     pub code: Option<String>,
 }
 
-impl<P> RequestJsonResponseV2<P> {
+impl<P> RequestJsonResponse<P> {
     pub fn into_payload(self, ctx: String) -> Result<P, PasswordError> {
-        self.payload.ok_or(PasswordError::NullPayload(ctx))
+        self.payload.ok_or(PasswordError::NullPayload(
+            ctx,
+            self.message.unwrap_or_default(),
+        ))
     }
 }
-type RequestJsonResponseV2Blank = RequestJsonResponseV2<String>;
+type RequestJsonResponseBlank = RequestJsonResponse<String>;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -191,7 +183,7 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     url: &str,
     inquiry_code: &str,
     payload: &S,
-) -> Result<RequestJsonResponseV1<D>, PasswordError> {
+) -> Result<RequestJsonResponse<D>, PasswordError> {
     println!("v1 request to {url} with iq: {inquiry_code}");
     let payload = RequestPayloadV1::new(inquiry_code, payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
@@ -210,7 +202,7 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
 
     let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
 
-    let json_data: RequestJsonResponseV1<D> = serde_json::de::from_slice(&data)
+    let json_data: RequestJsonResponse<D> = serde_json::de::from_slice(&data)
         .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
@@ -218,7 +210,7 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
 async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
     url: &str,
     auth_token: &str,
-) -> Result<RequestJsonResponseV2<D>, PasswordError> {
+) -> Result<RequestJsonResponse<D>, PasswordError> {
     println!("v2 request to {url} with token: {auth_token}");
     let headers = v2_headers_empty(auth_token).map_err(|e| PasswordError::Headers(e))?;
 
@@ -233,7 +225,7 @@ async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
 
     let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
 
-    let json_data: RequestJsonResponseV2<D> = serde_json::de::from_slice(&data)
+    let json_data: RequestJsonResponse<D> = serde_json::de::from_slice(&data)
         .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
@@ -243,7 +235,7 @@ async fn v2_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     auth_token: &str,
     inquiry_code: &str,
     payload: &S,
-) -> Result<RequestJsonResponseV2<D>, PasswordError> {
+) -> Result<RequestJsonResponse<D>, PasswordError> {
     println!("v2 request to {url} with inquiry code: {inquiry_code} and with token: {auth_token}");
     let payload = RequestPayloadV2::new(payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
@@ -262,7 +254,7 @@ async fn v2_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
 
     let data = resp.bytes().await.map_err(PasswordError::Bytes)?;
 
-    let json_data: RequestJsonResponseV2<D> = serde_json::de::from_slice(&data)
+    let json_data: RequestJsonResponse<D> = serde_json::de::from_slice(&data)
         .map_err(|e| PasswordError::JsonResp(e, url.to_string()))?;
 
     Ok(json_data)
@@ -309,7 +301,7 @@ pub async fn create_new_account() -> Result<NewAccountJsonResponse, PasswordErro
 pub async fn register_new_account(
     inquiry_code: &str,
     account_created_at: u64,
-) -> Result<RequestJsonResponseV1<PasswordJsonResponse>, PasswordError> {
+) -> Result<RequestJsonResponse<PasswordJsonResponse>, PasswordError> {
     let payload = NewAccountPayload { account_created_at };
     v1_request(&format!("{AUTH_URL}/v1/users"), inquiry_code, &payload).await
 }
@@ -470,12 +462,13 @@ impl AccountState {
 }
 
 pub async fn upload_save(
-    mut save_file: SaveFileAccount,
-    info: UploadInfo,
-) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
+    mut save_file: SaveFile,
+) -> Result<(TransferCodes, SaveFile), PasswordError> {
+    let info = UploadInfo::from_save(&save_file);
+    let mut account_info = stored_string::read_account_info(&save_file.save);
     let mut state = AccountState {
         inquiry_code: info.inquiry_code,
-        account_info: save_file.account_info.account_info.clone(),
+        account_info: account_info.account_info.clone(),
         password_refresh_token: info.password_refresh_token,
         gvcc: info.gvcc,
         items: ManagedItemsUpdate {
@@ -503,15 +496,15 @@ pub async fn upload_save(
         }
     };
 
-    *save_file.save_file.save.inquiry_code_mut() = state.try_fetch_inquiry_code().await?;
-    *save_file.save_file.save.password_refresh_token_mut() =
-        state.try_fetch_password_refresh_token().await?;
+    *save_file.save.inquiry_code_mut() = state.try_fetch_inquiry_code().await?;
+    *save_file.save.password_refresh_token_mut() = state.try_fetch_password_refresh_token().await?;
 
-    save_file.account_info.account_info.password = Some(state.try_fetch_password().await?);
-    save_file.account_info.account_info.auth_token = Some(state.try_fetch_auth_token().await?);
+    account_info.account_info.password = Some(state.try_fetch_password().await?);
+    account_info.account_info.auth_token = Some(state.try_fetch_auth_token().await?);
+
+    stored_string::save_account_info(&account_info, &mut save_file.save);
 
     let save_data = save_file
-        .save_file
         .clone()
         .write_with_hash()
         .map_err(PasswordError::SerializeSave)?;
@@ -521,7 +514,7 @@ pub async fn upload_save(
         save_key,
         &state.try_fetch_inquiry_code().await?,
         save_data,
-        &save_file.account_info.managed_items,
+        &account_info.managed_items,
         info.playtime,
         info.user_rank,
         Vec::new(),
@@ -529,16 +522,79 @@ pub async fn upload_save(
     .await?
     .into_payload("upload save data".to_string())?;
 
-    save_file.account_info.managed_items.clear();
+    stored_string::remove_managed_items(&mut save_file.save);
 
     Ok((codes, save_file))
 }
 
+pub async fn upload_save_tracked_items(mut save_file: SaveFile) -> Result<SaveFile, PasswordError> {
+    let info = UploadInfo::from_save(&save_file);
+    let mut account_info = stored_string::read_account_info(&save_file.save);
+    let mut state = AccountState {
+        inquiry_code: info.inquiry_code,
+        account_info: account_info.account_info.clone(),
+        password_refresh_token: info.password_refresh_token,
+        gvcc: info.gvcc,
+        items: ManagedItemsUpdate {
+            catfood_amount: info.catfood,
+            is_paid: false, // TODO
+            legend_ticket_amount: info.legend_tickets,
+            platinum_ticket_amount: info.platinum_tickets,
+            rare_ticket_amount: info.rare_tickets,
+        },
+        account_created_at: 0, // TODO
+    };
+
+    let save_key_payload = fetch_save_key(&state.try_fetch_auth_token().await?)
+        .await?
+        .into_payload("get save key".to_string());
+
+    let save_key = match save_key_payload {
+        Ok(o) => o,
+        Err(_) => {
+            state.account_info.auth_token = None;
+            let auth_token = state.try_fetch_auth_token().await?;
+            fetch_save_key(&auth_token)
+                .await?
+                .into_payload("get save key".to_string())?
+        }
+    };
+
+    *save_file.save.inquiry_code_mut() = state.try_fetch_inquiry_code().await?;
+    *save_file.save.password_refresh_token_mut() = state.try_fetch_password_refresh_token().await?;
+
+    account_info.account_info.password = Some(state.try_fetch_password().await?);
+    account_info.account_info.auth_token = Some(state.try_fetch_auth_token().await?);
+
+    stored_string::save_account_info(&account_info, &mut save_file.save);
+
+    let save_data = save_file
+        .clone()
+        .write_with_hash()
+        .map_err(PasswordError::SerializeSave)?;
+
+    upload_save_metadata(
+        &state.try_fetch_auth_token().await?,
+        save_key,
+        &state.try_fetch_inquiry_code().await?,
+        save_data,
+        &account_info.managed_items,
+        info.playtime,
+        info.user_rank,
+        Vec::new(),
+    )
+    .await?
+    .into_payload("upload save metadata".to_string())?;
+
+    stored_string::remove_managed_items(&mut save_file.save);
+
+    Ok(save_file)
+}
+
 pub async fn create_and_upload(
-    save_data: SaveFileAccount,
-    info: UploadInfo,
-) -> Result<(TransferCodes, SaveFileAccount), PasswordError> {
-    upload_save(save_data, info).await
+    save_data: SaveFile,
+) -> Result<(TransferCodes, SaveFile), PasswordError> {
+    upload_save(save_data).await
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -550,7 +606,7 @@ struct RefreshPasswordPayload<'a> {
 pub async fn refresh_password(
     inquiry_code: &str,
     password_refresh_token: &str,
-) -> Result<RequestJsonResponseV1<PasswordJsonResponse>, PasswordError> {
+) -> Result<RequestJsonResponse<PasswordJsonResponse>, PasswordError> {
     let url = format!("{AUTH_URL}/v1/user/password");
     let data = RefreshPasswordPayload {
         password_refresh_token,
@@ -576,7 +632,7 @@ pub async fn fetch_auth_token(
     password: &str,
     cc: crate::country_code::CountryCode,
     gv: crate::game_version::GameVersion,
-) -> Result<RequestJsonResponseV1<AuthTokenJsonResponse>, PasswordError> {
+) -> Result<RequestJsonResponse<AuthTokenJsonResponse>, PasswordError> {
     let url = format!("{AUTH_URL}/v1/tokens");
     v1_request(
         &url,
@@ -609,7 +665,7 @@ pub struct SaveKeyJsonResponse {
 
 pub async fn fetch_save_key(
     auth_token: &str,
-) -> Result<RequestJsonResponseV2<SaveKeyJsonResponse>, PasswordError> {
+) -> Result<RequestJsonResponse<SaveKeyJsonResponse>, PasswordError> {
     let url = format!(
         "{SAVE_URL}/v2/save/key?nonce={}",
         gen_nonce().map_err(PasswordError::GenNonce)?
@@ -660,19 +716,74 @@ async fn post_save_data(
     }
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Copy, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ManagedItemDetailType {
+    #[default]
     Get,
     Use,
 }
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+
+impl Display for ManagedItemDetailType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ManagedItemDetailType::Get => "get",
+                ManagedItemDetailType::Use => "use",
+            }
+        )
+    }
+}
+
+impl FromStr for ManagedItemDetailType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "get" => Self::Get,
+            "use" => Self::Use,
+            _ => return Err(format!("{s} is not a valid item detail type!")),
+        })
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ManagedItemType {
+    #[default]
     Catfood,
     RareTicket,
     PlatinumTicket,
     LegendTicket,
+}
+
+impl FromStr for ManagedItemType {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "catfood" => Self::Catfood,
+            "rareTicket" => Self::RareTicket,
+            "platinumTicket" => Self::PlatinumTicket,
+            "legendTicket" => Self::LegendTicket,
+            _ => return Err(format!("{s} is not a valid item type!")),
+        })
+    }
+}
+
+impl Display for ManagedItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ManagedItemType::Catfood => "catfood",
+                ManagedItemType::RareTicket => "rareTicket",
+                ManagedItemType::PlatinumTicket => "platinumTicket",
+                ManagedItemType::LegendTicket => "legendTicket",
+            }
+        )
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -686,6 +797,9 @@ pub struct ManagedItem {
 }
 
 impl ManagedItem {
+    pub fn unchanged(&self) -> bool {
+        self.amount == 0
+    }
     pub fn new(amount: i32, item: ManagedItemType) -> Self {
         Self {
             amount,
@@ -697,6 +811,33 @@ impl ManagedItem {
                 ManagedItemDetailType::Get
             },
             managed_item_type: item,
+        }
+    }
+
+    pub fn to_short_form(&self) -> String {
+        format!(
+            "{}_{}_{}_{}",
+            self.amount, self.detail_created_at, self.managed_item_type, self.detail_type
+        )
+    }
+
+    pub fn from_short_form(val: &str) -> ManagedItem {
+        let mut parts = val.split("_");
+
+        let amount: i32 = parts.next().unwrap_or_default().parse().unwrap_or_default();
+        let detail_created_at: u64 = parts.next().unwrap_or_default().parse().unwrap_or_default();
+        let managed_item_type: ManagedItemType =
+            parts.next().unwrap_or_default().parse().unwrap_or_default();
+
+        let detail_type: ManagedItemDetailType =
+            parts.next().unwrap_or_default().parse().unwrap_or_default();
+
+        ManagedItem {
+            amount,
+            detail_code: uuid::Uuid::new_v4().to_string(),
+            detail_created_at,
+            detail_type,
+            managed_item_type,
         }
     }
 
@@ -768,7 +909,7 @@ pub async fn upload_save_data(
     play_time: i32,
     user_rank: i32,
     reciept_log_ids: Vec<String>,
-) -> Result<RequestJsonResponseV2<TransferCodes>, PasswordError> {
+) -> Result<RequestJsonResponse<TransferCodes>, PasswordError> {
     let key = save_key.key.clone();
     post_save_data(save_key, save_data).await?;
 
@@ -790,18 +931,18 @@ pub async fn upload_save_metadata(
     save_key: SaveKeyJsonResponse,
     inquiry_code: &str,
     save_data: Vec<u8>,
-    managed_items: Vec<ManagedItem>,
+    managed_items: &Vec<ManagedItem>,
     play_time: i32,
     user_rank: i32,
     reciept_log_ids: Vec<String>,
-) -> Result<RequestJsonResponseV2Blank, PasswordError> {
+) -> Result<RequestJsonResponseBlank, PasswordError> {
     let key = save_key.key.clone();
     post_save_data(save_key, save_data).await?;
 
     let url = format!("{SAVE_URL}/v2/backups");
 
     let payload = UploadRequestPayload::new(
-        &managed_items,
+        managed_items,
         play_time,
         user_rank,
         reciept_log_ids,
@@ -826,7 +967,7 @@ pub async fn update_managed_items(
     auth_token: &str,
     inquiry_code: &str,
     managed_items: &ManagedItemsUpdate,
-) -> Result<RequestJsonResponseV2Blank, PasswordError> {
+) -> Result<RequestJsonResponseBlank, PasswordError> {
     let url = format!("{MANAGED_ITEM_URL}/v1/managed-items");
     v2_request(&url, auth_token, inquiry_code, managed_items).await
 }
