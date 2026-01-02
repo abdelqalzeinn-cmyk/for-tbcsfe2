@@ -588,12 +588,6 @@ pub async fn upload_save_tracked_items(mut save_file: SaveFile) -> Result<SaveFi
     Ok(save_file)
 }
 
-pub async fn create_and_upload(
-    save_data: SaveFile,
-) -> Result<(TransferCodes, SaveFile), PasswordError> {
-    upload_save(save_data).await
-}
-
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RefreshPasswordPayload<'a> {
