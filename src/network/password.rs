@@ -184,7 +184,6 @@ async fn v1_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     inquiry_code: &str,
     payload: &S,
 ) -> Result<RequestJsonResponse<D>, PasswordError> {
-    println!("v1 request to {url} with iq: {inquiry_code}");
     let payload = RequestPayloadV1::new(inquiry_code, payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
     let headers =
@@ -211,7 +210,6 @@ async fn v2_request_empty<D: for<'a> serde::Deserialize<'a>>(
     url: &str,
     auth_token: &str,
 ) -> Result<RequestJsonResponse<D>, PasswordError> {
-    println!("v2 request to {url} with token: {auth_token}");
     let headers = v2_headers_empty(auth_token).map_err(|e| PasswordError::Headers(e))?;
 
     let client = new_client().map_err(|e| PasswordError::NewClient(e))?;
@@ -236,7 +234,6 @@ async fn v2_request<S: serde::Serialize, D: for<'a> serde::Deserialize<'a>>(
     inquiry_code: &str,
     payload: &S,
 ) -> Result<RequestJsonResponse<D>, PasswordError> {
-    println!("v2 request to {url} with inquiry code: {inquiry_code} and with token: {auth_token}");
     let payload = RequestPayloadV2::new(payload).map_err(PasswordError::GenNonce)?;
     let data = serde_json::to_vec(&payload).map_err(PasswordError::ToJsonStr)?;
     let headers =
