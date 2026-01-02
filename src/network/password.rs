@@ -458,9 +458,7 @@ impl AccountState {
     }
 }
 
-pub async fn upload_save(
-    mut save_file: SaveFile,
-) -> Result<(TransferCodes, SaveFile), PasswordError> {
+pub async fn upload_save(save_file: &mut SaveFile) -> Result<TransferCodes, PasswordError> {
     let info = UploadInfo::from_save(&save_file);
     let mut account_info = stored_string::read_account_info(&save_file.save);
     let mut state = AccountState {
@@ -521,7 +519,7 @@ pub async fn upload_save(
 
     stored_string::remove_managed_items(&mut save_file.save);
 
-    Ok((codes, save_file))
+    Ok(codes)
 }
 
 pub async fn upload_save_tracked_items(mut save_file: SaveFile) -> Result<SaveFile, PasswordError> {
