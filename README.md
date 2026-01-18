@@ -1,8 +1,11 @@
 # bcsfe_rs
 
-A rust crate handling save parsing, serializing and a few networked things.
+A rust crate handling save parsing, serializing and a few networked things for save files in The
+Battle Cats.
 
 Note: this project is quite early on in development, so there will be many features missing.
+
+See [bcsfe_cli](https://codeberg.org/fieryhenry/bcsfe_cli) for a basic command line interface.
 
 ## Build from source
 
