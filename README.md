@@ -1,11 +1,8 @@
 # bcsfe_rs
 
-A rust port of <https://codeberg.org/fieryhenry/BCSFE-Python>.
+A rust crate handling save parsing, serializing and a few networked things.
 
 Note: this project is quite early on in development, so there will be many features missing.
-
-WARNING: there are no ban prevention measures yet, so editing catfood, rare tickets, platinum tickets
-and legend tickets could lead to your account being banned.
 
 ## Build from source
 
@@ -18,7 +15,6 @@ cargo build
 ## Contributing
 
 See [CONTRIBUTING](./docs/CONTRIBUTING.md)
-
 
 ## License
 

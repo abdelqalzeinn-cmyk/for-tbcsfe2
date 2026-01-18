@@ -88,7 +88,10 @@ pub struct Engima {
     pub enigma_level: i8,
     pub unknown_1: i8,
     pub unknown_2: bool,
-    pub stages: LengthVec<i8, EnigmaStage>,
+    // with = "<type>" will read as "<type>" then call .into to turn it into the field type
+    // for writing it will call .into to turn it into "<type>" then write as "<type>"
+    #[rw(with = "LengthVec<i8, EnigmaStage>")]
+    pub stages: Vec<EnigmaStage>,
     #[rw(gvcc)] // notice this since [`ExtraEnigmaData`] has `GVCC` as arguments.
     pub extra_data: ExtraEnigmaData,
 }
@@ -200,17 +203,25 @@ It has 3 type paramters:
 - `V`: data type of the hashmap value, must impliment `Readable` and `Writable` with no args.
   It must also impliment `Debug` and `Default`.
 
+### Using for fields
 
-These structs are quite powerful, for example see `map_resets` in `gv_72::GV72Block`:
+These structs are quite powerful, and should be used using the `with` attribute argument.
+
+The type specified in `with` must impliment `Into<FieldType>` and `From<FieldType>` where `FieldType`
+is the type of the field.
+
+For example see `map_resets` in `gv_72::GV72Block`:
 
 ```rust
-pub map_resets: HashMapLength<i32, i32, LengthVec<i32, MapResetData>>,
+#[rw(with="HashMapLength<i32, i32, LengthVec<i32, MapResetData>>")]
+pub map_resets: HashMap<i32, Vec<MapResetData>>,
 ```
 
 Or zombie outbreaks in `gv_59::GV59Block`:
 
 ```rust
-pub outbreaks: HashMapLength<i32, i32, HashMapLength<i32, i32, bool>>,
+#[rw(with="HashMapLength<i32, i32, HashMapLength<i32, i32, bool>>")]
+pub outbreaks: HashMap<i32, HashMap<i32, bool>>,
 ```
 
 ## GVCC
