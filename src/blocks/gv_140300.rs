@@ -8,11 +8,15 @@ use crate::stream::LengthVec;
 pub struct GV140300Block {
     #[rw(with = "LengthVec<i8, i8>")]
     pub u1: Vec<i8>,
-    pub u2: bool,
+    #[rw(min_gv = 150300)]
+    pub u2: i32,
+    #[rw(min_gv = 150300)]
+    pub u3: bool,
+    pub u4: bool,
     #[rw(with = "LengthVec<i8, i32>")]
     pub treasure_chests: Vec<i32>,
-    pub u3: i32,
+    pub u5: i32,
     #[rw(with = "LengthVec<i16, i32>")]
-    pub u4: Vec<i32>,
-    pub u5: bool,
+    pub u6: Vec<i32>,
+    pub u7: bool,
 }

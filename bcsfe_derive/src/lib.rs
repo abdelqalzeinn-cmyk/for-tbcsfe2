@@ -16,6 +16,7 @@ struct Opts {
     kr: Option<bool>,
     tw: Option<bool>,
     with: Option<String>,
+    dbg: Option<bool>,
 }
 
 #[derive(Debug, Copy, Clone, FromAttributes, Default)]
@@ -54,6 +55,7 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
     let mut all_empty = true;
 
     let mut read_field_impls = Vec::with_capacity(fields.len());
+    let mut debug_fields = Vec::new();
 
     for field in fields {
         let opts = Opts::from_attributes(&field.attrs).expect("Wrong options");
@@ -114,6 +116,13 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
         };
 
         read_field_impls.push(data);
+        if let Some(debug) = opts.dbg
+            && debug
+        {
+            debug_fields.push(quote! {
+                dbg!(&val.#field_name);
+            });
+        }
     }
 
     let assertable_toks = if let Some(assertable) = struct_opts.end_assert {
@@ -123,9 +132,41 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
             let assertable = #assertable;
             let value: u32 = crate::stream::NewResultCtx::add_context(crate::stream::ReadableNoOptions::read_no_opts(reader), || format!("read u32 for end assert for {name}"))?;
 
-
             if value != #assertable {
-                return Err(crate::stream::StreamError::new(std::io::Error::other(format!("assertion error. expected: {assertable}, got {value} for {name}")), pos));
+                // find assertable
+
+                let mut start_pos = pos;
+
+                std::io::Seek::seek(reader, std::io::SeekFrom::End(0))?;
+
+                let end_pos = std::io::Seek::stream_position(reader)?;
+
+                std::io::Seek::seek(reader, std::io::SeekFrom::Start(pos))?;
+                while (start_pos + 4 < end_pos) {
+                    std::io::Seek::seek(reader, std::io::SeekFrom::Start(start_pos))?;
+                    let val: u32 = crate::stream::NewResultCtx::add_context(crate::stream::ReadableNoOptions::read_no_opts(reader), || format!("read u32 for end assert for {name}"))?;
+
+                    if val == #assertable {
+                        let diff = start_pos - pos;
+                        return Err(crate::stream::StreamError::new(std::io::Error::other(format!("assertion error. expected: {assertable}, got {value} for {name}. actual value is +{diff} away")), pos));
+                    }
+
+                    start_pos += 1;
+                }
+                start_pos = pos;
+                while (start_pos != 0) {
+                    std::io::Seek::seek(reader, std::io::SeekFrom::Start(start_pos))?;
+                    let val: u32 = crate::stream::NewResultCtx::add_context(crate::stream::ReadableNoOptions::read_no_opts(reader), || format!("read u32 for end assert for {name}"))?;
+
+                    if val == #assertable {
+                        let diff = pos - start_pos;
+                        return Err(crate::stream::StreamError::new(std::io::Error::other(format!("assertion error. expected: {assertable}, got {value} for {name}. actual value is -{diff} away")), pos));
+                    }
+
+                    start_pos -= 1;
+                }
+
+                return Err(crate::stream::StreamError::new(std::io::Error::other(format!("assertion error. expected: {assertable}, got {value} for {name}. could not find value anywhere")), pos));
             }
         }
     } else {
@@ -140,13 +181,14 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
                     reader: &mut R,
                     _args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<Self> {
-                    let val = Ok(Self {
+                    let val = Self {
                         #(#read_field_impls)*
-                    });
+                    };
 
+                    #(#debug_fields)*
                     #assertable_toks
 
-                    val
+                    Ok(val)
                 }
             }
         }
@@ -158,13 +200,14 @@ pub fn readable_derive(input: TokenStream) -> TokenStream {
                     reader: &mut R,
                     args: Self::Args<'_>,
                 ) -> crate::stream::StreamResult<Self> {
-                    let val = Ok(Self {
+                    let val = Self {
                         #(#read_field_impls)*
-                    });
+                    };
+                    #(#debug_fields)*
 
                     #assertable_toks
 
-                    val
+                    Ok(val)
                 }
             }
         }

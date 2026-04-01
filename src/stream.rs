@@ -10,6 +10,8 @@ use std::{
 #[cfg(feature = "serde")]
 use serde::Deserialize;
 
+use crate::save::GVCC;
+
 #[derive(Debug)]
 pub struct StreamError {
     pub error: std::io::Error,
@@ -283,6 +285,15 @@ impl VecArgs<()> {
     }
 }
 
+impl<T> VecArgs<T> {
+    pub fn new_item_fixed(length: usize, item: T) -> Self {
+        Self {
+            length: VecArgsLength::Fixed(length),
+            item,
+        }
+    }
+}
+
 impl Readable for String {
     type Args<'a> = VecArgsLength;
 
@@ -496,7 +507,16 @@ impl_from_usize!(i64);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LengthVec<L, T>(pub Vec<T>, PhantomData<L>);
 
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct GVCCLengthVec<L, T>(pub Vec<T>, PhantomData<L>);
+
 impl<L, T> LengthVec<L, T> {
+    pub fn new(items: Vec<T>) -> Self {
+        Self(items, PhantomData)
+    }
+}
+impl<L, T> GVCCLengthVec<L, T> {
     pub fn new(items: Vec<T>) -> Self {
         Self(items, PhantomData)
     }
@@ -507,23 +527,47 @@ impl<T1, T2, T3: From<T2>> From<Vec<T2>> for LengthVec<T1, T3> {
         Self(value.into_iter().map(|v| v.into()).collect(), PhantomData)
     }
 }
+impl<T1, T2, T3: From<T2>> From<Vec<T2>> for GVCCLengthVec<T1, T3> {
+    fn from(value: Vec<T2>) -> Self {
+        Self(value.into_iter().map(|v| v.into()).collect(), PhantomData)
+    }
+}
 
 impl<T1, T2, T3: From<T2>> From<LengthVec<T1, T2>> for Vec<T3> {
     fn from(value: LengthVec<T1, T2>) -> Self {
         value.0.into_iter().map(|v| v.into()).collect()
     }
 }
+impl<T1, T2, T3: From<T2>> From<GVCCLengthVec<T1, T2>> for Vec<T3> {
+    fn from(value: GVCCLengthVec<T1, T2>) -> Self {
+        value.0.into_iter().map(|v| v.into()).collect()
+    }
+}
 
-impl<
-    L: for<'a> Readable<Args<'a> = ()> + ToUsize,
-    T: for<'a> Readable<Args<'a> = ()> + std::fmt::Debug,
-> Readable for LengthVec<L, T>
+impl<L: for<'a> Readable<Args<'a> = ()> + ToUsize, T: std::fmt::Debug> Readable for LengthVec<L, T>
+where
+    T: for<'a> Readable<Args<'a> = ()>,
 {
     type Args<'a> = ();
     fn read<R: Read + Seek>(reader: &mut R, _args: Self::Args<'_>) -> StreamResult<Self> {
         let length = L::read_no_opts(reader)?;
         Ok(Self(
             <Vec<T>>::read(reader, VecArgs::new_empty_fixed(length.to_usize()))?,
+            PhantomData,
+        ))
+    }
+}
+
+impl<L: for<'a> Readable<Args<'a> = ()> + ToUsize, T: std::fmt::Debug> Readable
+    for GVCCLengthVec<L, T>
+where
+    T: for<'a> Readable<Args<'a> = GVCC>,
+{
+    type Args<'a> = GVCC;
+    fn read<R: Read + Seek>(reader: &mut R, args: Self::Args<'_>) -> StreamResult<Self> {
+        let length = L::read_no_opts(reader)?;
+        Ok(Self(
+            <Vec<T>>::read(reader, VecArgs::new_item_fixed(length.to_usize(), args))?,
             PhantomData,
         ))
     }
@@ -542,6 +586,23 @@ impl<
         length.write_no_opts(writer)?;
 
         self.0.write(writer, VecArgs::new_empty_fixed(len))?;
+        Ok(())
+    }
+}
+
+impl<
+    L: for<'a> Writable<Args<'a> = ()> + FromUsize,
+    T: for<'a> Writable<Args<'a> = GVCC> + std::fmt::Debug + Default,
+> Writable for GVCCLengthVec<L, T>
+{
+    type Args<'a> = GVCC;
+    fn write<W: Write + Seek>(self, writer: &mut W, args: Self::Args<'_>) -> StreamResult<()> {
+        let len = self.0.len();
+        let length = L::from_usize(len);
+
+        length.write_no_opts(writer)?;
+
+        self.0.write(writer, VecArgs::new_item_fixed(len, args))?;
         Ok(())
     }
 }

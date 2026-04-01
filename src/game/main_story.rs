@@ -271,6 +271,10 @@ impl StageId {
         }
     }
 
+    pub fn first() -> Self {
+        Self(0)
+    }
+
     pub fn into_usize(self) -> usize {
         self.into()
     }

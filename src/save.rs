@@ -669,7 +669,7 @@ pub struct Save {
     pub gv_140100: gv_140100::GV140100Block,
     #[rw(gvcc, min_gv = 140200)]
     pub gv_140200: gv_140200::GV140200Block,
-    #[rw(min_gv = 140300)]
+    #[rw(min_gv = 140300, gvcc)]
     pub gv_140300: gv_140300::GV140300Block,
     #[rw(min_gv = 140500)]
     pub gv_140500: gv_140500::GV140500Block,
