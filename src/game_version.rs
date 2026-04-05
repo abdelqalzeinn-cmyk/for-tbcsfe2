@@ -37,7 +37,7 @@ impl Display for GameVersion {
         write!(
             f,
             "{}",
-            self.into_segments().map(|v| format!("{v:02}")).join(".")
+            self.into_segments().map(|v| v.to_string()).join(".")
         )
     }
 }
