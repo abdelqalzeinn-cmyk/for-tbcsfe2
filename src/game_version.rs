@@ -48,10 +48,28 @@ impl From<[u8; 3]> for GameVersion {
     }
 }
 
+#[derive(Debug)]
 pub enum InvalidGameVersionStr {
     InvalidSegment(String, std::num::ParseIntError),
-    IncorrectSegmentNumber(usize, Vec<u8>),
+    IncorrectSegmentNumber(usize, usize),
 }
+
+impl Display for InvalidGameVersionStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                InvalidGameVersionStr::InvalidSegment(segment, e) =>
+                    format!("failed to parse segment: {segment} due to {e}"),
+                InvalidGameVersionStr::IncorrectSegmentNumber(got_len, expected_len) =>
+                    format!("invalid segment count, got: {got_len}, expected: {expected_len}"),
+            }
+        )
+    }
+}
+
+impl std::error::Error for InvalidGameVersionStr {}
 
 impl FromStr for GameVersion {
     type Err = InvalidGameVersionStr;
@@ -73,7 +91,7 @@ impl FromStr for GameVersion {
 
         let segments_arr: [u8; 3] = segments_u8
             .try_into()
-            .map_err(|e| InvalidGameVersionStr::IncorrectSegmentNumber(len, e))?;
+            .map_err(|_| InvalidGameVersionStr::IncorrectSegmentNumber(len, 3))?;
 
         Ok(segments_arr.into())
     }
