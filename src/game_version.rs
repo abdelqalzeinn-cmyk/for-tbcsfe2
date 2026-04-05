@@ -97,13 +97,25 @@ impl FromStr for GameVersion {
     }
 }
 
-#[cfg(feature = "network")]
+#[cfg(any(feature = "serde", feature = "game_data"))]
 impl serde::Serialize for GameVersion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+#[cfg(any(feature = "serde", feature = "game_data"))]
+impl<'de> serde::Deserialize<'de> for GameVersion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str = String::deserialize(deserializer)?;
+
+        str.parse().map_err(|e| serde::de::Error::custom(e))
     }
 }
 

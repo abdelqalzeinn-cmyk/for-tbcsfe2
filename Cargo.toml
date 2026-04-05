@@ -23,6 +23,8 @@ uuid = { version = "1.18", optional = true, features = ["v4"] }
 tempfile = { version = "3.21", optional = true }
 serde_arrays = { version = "0.2", optional = true }
 tokio = { version = "1.49.0", features = ["full"] }
+xz2 = { version = "0.1", optional = true }
+tar = { version = "0.4", optional = true }
 
 [workspace]
 members = ["bcsfe_derive"]
@@ -45,3 +47,4 @@ network = [
 ]
 adb = ["dep:tempfile"]
 hash = ["dep:md5"]
+game_data = ["dep:reqwest", "dep:xz2", "dep:serde", "dep:thiserror", "dep:tar"]

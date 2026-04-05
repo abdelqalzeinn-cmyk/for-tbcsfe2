@@ -16,3 +16,6 @@ pub mod hash;
 pub mod save;
 pub mod save_shortcuts;
 pub mod stream;
+
+#[cfg(feature = "game_data")]
+pub mod game_data;

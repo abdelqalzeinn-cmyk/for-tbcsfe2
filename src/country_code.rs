@@ -9,13 +9,25 @@ pub enum CountryCode {
     Tw,
 }
 
-#[cfg(feature = "network")]
+#[cfg(any(feature = "serde", feature = "game_data"))]
 impl serde::Serialize for CountryCode {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+#[cfg(any(feature = "serde", feature = "game_data"))]
+impl<'de> serde::Deserialize<'de> for CountryCode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str = String::deserialize(deserializer)?;
+
+        str.parse().map_err(|e| serde::de::Error::custom(e))
     }
 }
 
@@ -26,6 +38,15 @@ impl CountryCode {
         CountryCode::Kr,
         CountryCode::Tw,
     ];
+
+    pub fn to_lang(&self) -> &'static str {
+        match self {
+            CountryCode::Jp => "ja",
+            CountryCode::En => "en",
+            CountryCode::Kr => "ko",
+            CountryCode::Tw => "tw",
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -74,6 +95,14 @@ impl From<PatchingCode> for CountryCode {
 
 #[derive(Debug)]
 pub struct InvalidCCStr(pub String);
+
+impl Display for InvalidCCStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid country code: {}", self.0)
+    }
+}
+
+impl std::error::Error for InvalidCCStr {}
 
 impl FromStr for CountryCode {
     type Err = InvalidCCStr;
