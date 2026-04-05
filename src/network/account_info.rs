@@ -1,18 +1,8 @@
-use std::{
-    fmt::Display,
-    io::{Cursor, Read, Write},
-    path::Path,
-};
+use std::fmt::Display;
 
-use zip::{
-    HasZipMetadata,
-    result::ZipError,
-    write::{FileOptions, SimpleFileOptions},
-};
+use zip::result::ZipError;
 
-use crate::{
-    country_code::CountryCode, network::password::ManagedItem, save::SaveFile, stream::StreamError,
-};
+use crate::{network::password::ManagedItem, stream::StreamError};
 
 #[derive(Debug)]
 pub enum AccountInfoError {
