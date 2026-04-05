@@ -2308,7 +2308,17 @@ impl Writable for Formi32 {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Upgrade {
     pub plus: i16,
-    pub base: i16,
+    base: i16,
+}
+
+impl Upgrade {
+    pub fn base(self) -> i16 {
+        self.base + 1
+    }
+
+    pub fn set_base(&mut self, value: i16) {
+        self.base = value - 1;
+    }
 }
 
 #[derive(Debug, Clone, Default)]
