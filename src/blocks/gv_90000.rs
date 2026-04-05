@@ -33,9 +33,9 @@ pub struct Medals {
     pub u1: i32,
     pub u2: i32,
     pub u3: i32,
-    #[rw(with = "LengthVec<i16, i16>")]
-    pub data_1: Vec<i16>,
-    #[rw(with = "HashMapLength<i16, i16, i8>")]
-    pub data_2: HashMap<i16, i8>,
+    #[rw(with = "LengthVec<i16, u16>")]
+    pub data_1: Vec<u16>,
+    #[rw(with = "HashMapLength<i16, u16, u8>")]
+    pub data_2: HashMap<u16, u8>,
     pub u4: bool,
 }

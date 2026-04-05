@@ -118,7 +118,7 @@ impl Writable for LegendQuestChapters {
 pub struct LegendQuest {
     pub chapters: LegendQuestChapters,
     pub unknown: Vec<i8>,
-    pub ids: Vec<i32>,
+    pub ids: Vec<u32>,
 }
 
 impl Readable for LegendQuest {
