@@ -17,7 +17,7 @@ use crate::{
 pub struct GV90400Block {
     pub enigma_clears: GauntletChapters,
     #[rw(gvcc)]
-    pub enigma: Engima,
+    pub enigma: Enigma,
     pub cleared_slots: ClearedSlots,
 }
 
@@ -89,7 +89,7 @@ impl Writable for ExtraEnigmaData {
 
 #[derive(Debug, Clone, Readable, Writable, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Engima {
+pub struct Enigma {
     pub energy_since_1: i32,
     pub energy_since_2: i32,
     pub enigma_level: i8,
