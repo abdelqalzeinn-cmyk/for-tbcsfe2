@@ -14,4 +14,5 @@ pub mod game_version;
 pub mod hash;
 
 pub mod save;
+pub mod save_shortcuts;
 pub mod stream;

@@ -745,51 +745,6 @@ impl TryFrom<usize> for BattleItem {
     }
 }
 
-impl Save {
-    pub fn calculate_user_rank(&self) -> i32 {
-        let mut ur: i32 = 0;
-        for (unlocked, level) in self.unlocked_cats.iter().zip(self.cat_upgrades.iter()) {
-            if *unlocked != 0 {
-                ur += (level.base as i32) + (level.plus as i32) + 1;
-            }
-        }
-
-        ur
-    }
-
-    pub fn platinum_tickets(&self) -> i32 {
-        self.gv_55.platinum_tickets
-    }
-
-    pub fn legend_tickets(&self) -> i32 {
-        self.gv_100000.legend_tickets
-    }
-    pub fn platinum_tickets_mut(&mut self) -> &mut i32 {
-        &mut self.gv_55.platinum_tickets
-    }
-    pub fn inquiry_code(&self) -> &str {
-        &self.gv_44.inquiry_code
-    }
-    pub fn inquiry_code_mut(&mut self) -> &mut String {
-        &mut self.gv_44.inquiry_code
-    }
-
-    pub fn legend_tickets_mut(&mut self) -> &mut i32 {
-        &mut self.gv_100000.legend_tickets
-    }
-
-    pub fn play_time(&self) -> i32 {
-        self.gv_44.play_time
-    }
-
-    pub fn password_refresh_token(&self) -> &str {
-        &self.gv_100000.password_refresh_token
-    }
-    pub fn password_refresh_token_mut(&mut self) -> &mut String {
-        &mut self.gv_100000.password_refresh_token
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemainingData {
