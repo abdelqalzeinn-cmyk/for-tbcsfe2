@@ -23,6 +23,18 @@ pub struct StaticChapter<const N: usize> {
     pub data: [i32; N],
 }
 
+impl<const N: usize> From<[i32; N]> for StaticChapter<N> {
+    fn from(value: [i32; N]) -> Self {
+        Self { data: value }
+    }
+}
+
+impl<const N: usize> From<StaticChapter<N>> for [i32; N] {
+    fn from(value: StaticChapter<N>) -> Self {
+        value.data
+    }
+}
+
 impl<const N: usize> Readable for StaticChapter<N> {
     type Args<'a> = ();
     fn read<R: std::io::Read + std::io::Seek>(

@@ -13,8 +13,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 90700)]
 pub struct GV90700Block {
-    #[rw(gvcc)]
-    pub talent_orbs: TalentOrbs,
+    #[rw(gvcc, with = "TalentOrbs")]
+    pub talent_orbs: HashMap<i16, i16>,
     #[rw(with = "HashMapLength<i16, i16, HashMapLength<i8, i8, i16>>")]
     pub unknown: HashMap<i16, HashMap<i8, i16>>,
     pub unknown_2: bool,
@@ -22,7 +22,7 @@ pub struct GV90700Block {
 
 impl Default for TalentOrbs {
     fn default() -> Self {
-        Self::New(HashMap::default())
+        Self(HashMap::default())
     }
 }
 
@@ -33,10 +33,10 @@ impl Readable for TalentOrbs {
         args: Self::Args<'_>,
     ) -> StreamResult<Self> {
         match args.gv.0 {
-            0..110400 => Ok(Self::Old(
+            0..110400 => Ok(Self(
                 <HashMapLength<i16, i16, i8>>::read_no_opts(reader)?.into(),
             )),
-            _ => Ok(Self::New(
+            _ => Ok(Self(
                 <HashMapLength<i16, i16, i16>>::read_no_opts(reader)?.into(),
             )),
         }
@@ -51,32 +51,13 @@ impl Writable for TalentOrbs {
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
         match args.gv.0 {
-            0..110400 => match self {
-                TalentOrbs::Old(hash_map_length) => {
-                    <HashMapLength<i16, i16, i8>>::write_no_opts(hash_map_length.into(), writer)?
-                }
-                TalentOrbs::New(hash_map_length) => {
-                    let other: HashMap<i16, i8> = hash_map_length
-                        .into_iter()
-                        .map(|(k, v)| (k, v as i8))
-                        .collect();
+            0..110400 => {
+                let other: HashMap<i16, i8> =
+                    self.0.into_iter().map(|(k, v)| (k, v as i8)).collect();
 
-                    <HashMapLength<i16, i16, i8>>::write_no_opts(other.into(), writer)?;
-                }
-            },
-            _ => match self {
-                TalentOrbs::Old(hash_map_length) => {
-                    let other: HashMap<i16, i16> = hash_map_length
-                        .into_iter()
-                        .map(|(k, v)| (k, v as i16))
-                        .collect();
-
-                    <HashMapLength<i16, i16, i16>>::write_no_opts(other.into(), writer)?;
-                }
-                TalentOrbs::New(hash_map_length) => {
-                    <HashMapLength<i16, i16, i16>>::write_no_opts(hash_map_length.into(), writer)?
-                }
-            },
+                <HashMapLength<i16, i16, i8>>::write_no_opts(other.into(), writer)?;
+            }
+            _ => <HashMapLength<i16, i16, i16>>::write_no_opts(self.0.into(), writer)?,
         };
 
         Ok(())
@@ -85,7 +66,16 @@ impl Writable for TalentOrbs {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TalentOrbs {
-    Old(HashMap<i16, i8>),
-    New(HashMap<i16, i16>),
+pub struct TalentOrbs(HashMap<i16, i16>);
+
+impl From<HashMap<i16, i16>> for TalentOrbs {
+    fn from(value: HashMap<i16, i16>) -> Self {
+        Self(value)
+    }
+}
+
+impl From<TalentOrbs> for HashMap<i16, i16> {
+    fn from(value: TalentOrbs) -> Self {
+        value.0
+    }
 }

@@ -53,14 +53,23 @@ impl Writable for EventCapsules {
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum GatyaSeed {
-    Old(u64),
-    New(u32),
+pub struct GatyaSeed(u32);
+
+impl From<u32> for GatyaSeed {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<GatyaSeed> for u32 {
+    fn from(value: GatyaSeed) -> Self {
+        value.0
+    }
 }
 
 impl Default for GatyaSeed {
     fn default() -> Self {
-        Self::New(0)
+        Self(0)
     }
 }
 
@@ -71,8 +80,8 @@ impl Readable for GatyaSeed {
         args: Self::Args<'_>,
     ) -> crate::stream::StreamResult<Self> {
         Ok(match args.gv.0 {
-            0..33 => Self::Old(u64::read_no_opts(reader)?),
-            _ => Self::New(u32::read_no_opts(reader)?),
+            0..33 => Self(u64::read_no_opts(reader)? as u32),
+            _ => Self(u32::read_no_opts(reader)?),
         })
     }
 }
@@ -85,14 +94,8 @@ impl Writable for GatyaSeed {
         args: Self::Args<'_>,
     ) -> StreamResult<()> {
         match args.gv.0 {
-            0..33 => match self {
-                GatyaSeed::Old(o) => o.write_no_opts(writer)?,
-                GatyaSeed::New(n) => (n as u64).write_no_opts(writer)?,
-            },
-            _ => match self {
-                GatyaSeed::Old(o) => (o as u32).write_no_opts(writer)?,
-                GatyaSeed::New(n) => n.write_no_opts(writer)?,
-            },
+            0..33 => (self.0 as u64).write_no_opts(writer)?,
+            _ => self.0.write_no_opts(writer)?,
         };
 
         Ok(())
@@ -103,8 +106,8 @@ impl Writable for GatyaSeed {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[rw(end_assert = 47)]
 pub struct GV47Block {
-    #[rw(gvcc)]
-    pub event_seed: GatyaSeed,
+    #[rw(gvcc, with = "GatyaSeed")]
+    pub event_seed: u32,
     #[rw(gvcc)]
     pub event_capsules: EventCapsules,
 }
