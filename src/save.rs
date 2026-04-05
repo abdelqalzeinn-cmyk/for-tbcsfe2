@@ -20,7 +20,7 @@ pub struct DateTimeDst {
     pub datetime: DateTime,
 }
 
-#[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[derive(Debug, Clone, Copy, Readable, Writable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DateTime {
     pub year: i32,
@@ -29,6 +29,19 @@ pub struct DateTime {
     pub hour: i32,
     pub minute: i32,
     pub second: i32,
+}
+
+impl Default for DateTime {
+    fn default() -> Self {
+        Self {
+            year: 1970,
+            month: 1,
+            day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -78,12 +91,22 @@ impl Writable for DateTimeDst {
     }
 }
 
-#[derive(Debug, Clone, Copy, Readable, Writable, Default)]
+#[derive(Debug, Clone, Copy, Readable, Writable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Date {
     pub year: i32,
     pub month: i32,
     pub day: i32,
+}
+
+impl Default for Date {
+    fn default() -> Self {
+        Self {
+            year: 1970,
+            month: 1,
+            day: 1,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default)]
