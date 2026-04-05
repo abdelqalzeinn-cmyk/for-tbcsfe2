@@ -434,8 +434,8 @@ pub struct Save {
     pub lineups: LineUps,
     pub stamp_data: StampData,
     pub story_chapters: StoryChapters,
-    #[rw(gvcc)]
-    pub enemy_guide: EnemyGuide,
+    #[rw(gvcc, with = "EnemyGuide")]
+    pub enemy_guide: Vec<i32>,
     #[rw(gvcc, with = "CatsField<i32>")]
     pub unlocked_cats: Vec<i32>,
     #[rw(gvcc, with = "CatsField<Upgrade>")]
@@ -489,10 +489,10 @@ pub struct Save {
     pub unlock_popups_8: UnlockPopups8,
     #[rw(gvcc, with = "UnitDrops")]
     pub unit_drops: Option<Vec<i32>>,
-    #[rw(gvcc)]
-    pub rare_seed: GatyaSeed,
-    #[rw(gvcc)]
-    pub normal_seed: GatyaSeed,
+    #[rw(gvcc, with = "GatyaSeed")]
+    pub rare_seed: u32,
+    #[rw(gvcc, with = "GatyaSeed")]
+    pub normal_seed: u32,
     pub get_event_data: bool,
     pub achievements: [bool; 7],
     pub os_value: i32,
@@ -1287,6 +1287,15 @@ pub enum UnlockedSlots {
     One(i8),
 }
 
+impl UnlockedSlots {
+    pub fn as_count(&self) -> i8 {
+        match self {
+            UnlockedSlots::Individual(i) => i.iter().filter(|item| **item).count() as i8,
+            UnlockedSlots::One(v) => *v,
+        }
+    }
+}
+
 impl Default for UnlockedSlots {
     fn default() -> Self {
         Self::One(0)
@@ -1328,14 +1337,7 @@ impl Writable for UnlockedSlots {
                     individual.write_no_opts(writer)?;
                 }
             },
-            _ => match self {
-                UnlockedSlots::Individual(i) => {
-                    let one: i8 = i.iter().filter(|item| **item).count() as i8;
-
-                    one.write_no_opts(writer)?;
-                }
-                UnlockedSlots::One(o) => o.write_no_opts(writer)?,
-            },
+            _ => self.as_count().write_no_opts(writer)?,
         };
 
         Ok(())
@@ -2386,6 +2388,18 @@ impl<T: for<'a> Writable<Args<'a> = ()> + std::fmt::Debug + Default> Writable fo
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EnemyGuide {
     pub enemy_guide: Vec<i32>,
+}
+
+impl From<Vec<i32>> for EnemyGuide {
+    fn from(value: Vec<i32>) -> Self {
+        Self { enemy_guide: value }
+    }
+}
+
+impl From<EnemyGuide> for Vec<i32> {
+    fn from(value: EnemyGuide) -> Self {
+        value.enemy_guide
+    }
 }
 
 impl Readable for EnemyGuide {
