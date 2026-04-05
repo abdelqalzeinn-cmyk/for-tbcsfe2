@@ -284,4 +284,11 @@ impl Save {
     pub fn catclaw_championships_mut(&mut self) -> &mut NewChapters {
         &mut self.gv_140000.dojo_chapters
     }
+
+    pub fn ultra_forms(&self) -> &Vec<i32> {
+        &self.gv_53.cat_fourth_forms
+    }
+    pub fn ultra_forms_mut(&mut self) -> &mut Vec<i32> {
+        &mut self.gv_53.cat_fourth_forms
+    }
 }
