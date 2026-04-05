@@ -5,7 +5,7 @@ pub fn sign<const BLOCK_SIZE: usize, T: Mac + hmac::digest::KeyInit>(
     data: &[u8],
 ) -> Result<String, std::io::Error> {
     let mut random_data = vec![0; BLOCK_SIZE];
-    getrandom::fill(&mut random_data).map_err(std::io::Error::other)?;
+    getrandom::fill(&mut random_data).map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let random_data = hex::encode(random_data);
 
