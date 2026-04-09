@@ -1,5 +1,5 @@
 [package]
-name = "bcsfe_rs"
+name = "bcsfe"
 version = "0.1.0"
 edition = "2024"
 
