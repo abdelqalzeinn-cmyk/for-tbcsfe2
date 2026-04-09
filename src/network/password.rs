@@ -384,9 +384,20 @@ impl AccountState {
 
         let iq = self.try_fetch_inquiry_code().await?;
 
-        let payload = register_new_account(&iq, self.account_created_at)
+        let res = register_new_account(&iq, self.account_created_at)
             .await?
-            .into_payload("register new account".to_string())?;
+            .into_payload("register new account".to_string());
+        let payload = match res {
+            Ok(o) => o,
+            Err(e) => {
+                if matches!(e, PasswordError::NullPayload(_, _)) {
+                    self.inquiry_code = None;
+                    self.init_new_account().await?;
+                }
+
+                return Box::pin(self.try_fetch_password_refresh_token()).await;
+            }
+        };
 
         self.password_refresh_token = Some(payload.password_refresh_token.clone());
         self.account_info.password = Some(payload.password);
@@ -407,9 +418,20 @@ impl AccountState {
             .into_payload("refresh password".to_string());
 
         if payload.is_err() {
-            payload = register_new_account(&iq, self.account_created_at)
+            let res = register_new_account(&iq, self.account_created_at)
                 .await?
                 .into_payload("register new account".to_string());
+            payload = match res {
+                Ok(o) => Ok(o),
+                Err(e) => {
+                    if matches!(e, PasswordError::NullPayload(_, _)) {
+                        self.inquiry_code = None;
+                        self.init_new_account().await?;
+                    }
+
+                    return Box::pin(self.try_fetch_password()).await;
+                }
+            };
         }
 
         let payload = payload?;
