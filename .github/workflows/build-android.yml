@@ -17,6 +17,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Debug Cargo.toml features
+        run: |
+          pwd
+          echo "=== Root Cargo.toml ==="
+          cat Cargo.toml
+          echo "=== Features section ==="
+          grep -A 20 "\[features\]" Cargo.toml || echo "No features section found"
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
