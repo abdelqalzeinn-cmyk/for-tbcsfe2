@@ -33,13 +33,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Android NDK
-        run: |
-          NDK_VERSION=r27b
-          wget -q "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
-          unzip -q "android-ndk-${NDK_VERSION}-linux.zip"
-          echo "NDK_ROOT=$(pwd)/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
-
       - name: Patch Cargo.toml for rustls (avoid OpenSSL cross-compile issues)
         run: |
           sed -i 's/reqwest = { version = "0.12", optional = true, features = \["json", "multipart"\] }/reqwest = { version = "0.12", optional = true, features = ["json", "multipart", "rustls-tls"], default-features = false }/' Cargo.toml
@@ -48,7 +41,7 @@ jobs:
         run: |
           NDK_VERSION=r27b
           wget -q "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
-          unzip -q "android-ndk-${NDK_VERSION}-linux.zip"
+          unzip -o -q "android-ndk-${NDK_VERSION}-linux.zip"
           echo "NDK_ROOT=$(pwd)/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
 
       - name: Build JNI library (arm64-v8a) - direct cargo
